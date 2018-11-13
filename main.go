@@ -75,9 +75,12 @@ type PostDetail struct {
 }
 
 const (
-	DbUser     = "docker"
-	DbPassword = "docker"
-	DbName     = "docker"
+	//DbUser     = "docker"
+	//DbPassword = "docker"
+	//DbName     = "docker"
+	DbUser     = "tpforumsapi"
+	DbPassword = "222"
+	DbName     = "forums"
 )
 
 var db *sql.DB
@@ -252,7 +255,6 @@ func userProfile(w http.ResponseWriter, r *http.Request)  {
 
 	query := "UPDATE users SET " + aboutAdditional + fullnameAdditional + emailAdditional + " WHERE nickname='" + nickname + "' RETURNING " +
 		"about,email,fullname,nickname"
-	//row := db.QueryRow("UPDATE users SET about=$1, email=$2, fullname=$3 WHERE nickname=$4 RETURNING *", userUpdate.About, userUpdate.Email, userUpdate.FullName, nickname)
 
 	row := db.QueryRow(query)
 
@@ -412,13 +414,7 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 	err = row.Scan(&id)
 
 	if err != nil {
-		e := new(Error)
-		e.Message =  "Can't find thread with id " + slugOrId + "\n"
-		resp, _ := json.Marshal(e)
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(resp)
+		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 		return
 	}
 
@@ -442,13 +438,7 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 	}
 
 	if err != nil {
-		e := new(Error)
-		e.Message =  "Can't find thread with id " + slugOrId + "\n"
-		resp, _ := json.Marshal(e)
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(resp)
+		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 		return
 	}
 
@@ -519,13 +509,7 @@ func threadPosts(w http.ResponseWriter, r *http.Request) {
 	thr, err := getThread(slugOrId)
 
 	if err != nil {
-		e := new(Error)
-		e.Message = "Can't find thread with id " + slugOrId + "\n"
-		resp, _ := json.Marshal(e)
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(resp)
+		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 		return
 	}
 
@@ -705,13 +689,7 @@ func threadDetails(w http.ResponseWriter, r *http.Request){
 			existThr, err := getThread(slugOrId)
 
 			if err != nil {
-				e := new(Error)
-				e.Message =  "Can't find thread with id " + slugOrId + "\n"
-				resp, _ := json.Marshal(e)
-				w.Header().Set("content-type", "application/json")
-
-				w.WriteHeader(http.StatusNotFound)
-				w.Write(resp)
+				sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 				return
 			}
 
@@ -759,13 +737,7 @@ func threadDetails(w http.ResponseWriter, r *http.Request){
 		err = row.Scan(&thr.Id, &thr.Author, &thr.Created, &thr.Forum,  &thr.Message, &thr.Slug, &thr.Title, &thr.Votes)
 
 		if err != nil {
-			e := new(Error)
-			e.Message =  "Can't find thread with id " + slugOrId + "\n"
-			resp, _ := json.Marshal(e)
-			w.Header().Set("content-type", "application/json")
-
-			w.WriteHeader(http.StatusNotFound)
-			w.Write(resp)
+			sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 			return
 		}
 
@@ -780,13 +752,7 @@ func threadDetails(w http.ResponseWriter, r *http.Request){
 	thr, err := getThread(slugOrId)
 
 	if err != nil {
-		e := new(Error)
-		e.Message =  "Can't find thread with id " + slugOrId + "\n"
-		resp, _ := json.Marshal(e)
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(resp)
+		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 		return
 	}
 
@@ -854,14 +820,7 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 	thr, err := getThread(slugOrId)
 
 	if err != nil{
-		e := new(Error)
-		e.Message =  "Can't find post with id " + slugOrId + "\n"
-		resp, _ := json.Marshal(e)
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusNotFound)
-
-		w.Write(resp)
+		sendError("Can't find post with id " + slugOrId + "\n", 404, &w)
 		return
 	}
 	var firstCreated time.Time
@@ -875,14 +834,7 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 
 			err := row.Scan(&parentPost.Id)
 			if err != nil {
-				e := new(Error)
-				e.Message =  "Parent post does not find \n"
-				resp, _ := json.Marshal(e)
-				w.Header().Set("content-type", "application/json")
-
-				w.WriteHeader(http.StatusConflict)
-
-				w.Write(resp)
+				sendError("Parent post was created in another thread \n", 409, &w)
 				return
 			}
 		}
@@ -891,27 +843,13 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 		if count == 0 { // Для того, чтобы все последующие добавления постов происхдили с той же датой и временем.
 			err := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING id, created", p.Author, thr.Forum, p.Message, p.Parent, thr.Id).Scan(&id, &firstCreated)
 			if err != nil {
-				e := new(Error)
-				e.Message =  "Parent post does not find \n"
-				resp, _ := json.Marshal(e)
-				w.Header().Set("content-type", "application/json")
-
-				w.WriteHeader(http.StatusNotFound)
-
-				w.Write(resp)
+				sendError("Can't find parent post \n", 404, &w)
 				return
 			}
 			} else {
 			err := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id", p.Author, thr.Forum, p.Message, p.Parent, thr.Id, firstCreated).Scan(&id)
 			if err != nil {
-				e := new(Error)
-				e.Message =  "Parent post does not find \n"
-				resp, _ := json.Marshal(e)
-				w.Header().Set("content-type", "application/json")
-
-				w.WriteHeader(http.StatusNotFound)
-
-				w.Write(resp)
+				sendError("Can't find parent post \n", 404, &w)
 				return
 			}
 			}
@@ -1042,13 +980,7 @@ func postDetails(w http.ResponseWriter, r *http.Request){ // related??? Полн
 		err = row.Scan(&oldMessage)
 
 		if err != nil{
-			e := new(Error)
-			e.Message =  "Can't find post with id " + id + "\n"
-			resp, _ := json.Marshal(e)
-			w.Header().Set("content-type", "application/json")
-
-			w.WriteHeader(http.StatusNotFound)
-			w.Write(resp)
+			sendError( "Can't find post with id " + id + "\n", 404, &w)
 			return
 		}
 
@@ -1058,13 +990,7 @@ func postDetails(w http.ResponseWriter, r *http.Request){ // related??? Полн
 			res, err1 := db.Exec("UPDATE posts SET message=$1, isedited=true WHERE id=$2", post.Message, id)
 			count, _ := res.RowsAffected()
 			if err1 != nil || count == 0 {
-				e := new(Error)
-				e.Message = "Can't find post with id " + id + "\n"
-				resp, _ := json.Marshal(e)
-				w.Header().Set("content-type", "application/json")
-
-				w.WriteHeader(http.StatusNotFound)
-				w.Write(resp)
+				sendError( "Can't find post with id " + id + "\n", 404, &w)
 				return
 			}
 		}
@@ -1093,13 +1019,7 @@ func postDetails(w http.ResponseWriter, r *http.Request){ // related??? Полн
 	err := row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
 
 	if err != nil {
-		e := new(Error)
-		e.Message =  "Can't find post with id " + id + "\n"
-		resp, _ := json.Marshal(e)
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(resp)
+		sendError( "Can't find post with id " + id + "\n", 404, &w)
 		return
 	}
 
@@ -1209,13 +1129,7 @@ func forumUsers(w http.ResponseWriter, r *http.Request){
 	}
 
 	if err != nil {
-		e := new(Error)
-		e.Message =  "Can't find forum with slug " + slug + "\n"
-		resp, _ := json.Marshal(e)
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(resp)
+		sendError( "Can't find forum with slug " + slug + "\n", 404, &w)
 		return
 	}
 
@@ -1367,13 +1281,7 @@ func forumDetails(w http.ResponseWriter, r *http.Request){
 	err := row.Scan(&frm.Posts, &frm.Slug, &frm.Threads, &frm.Title, &frm.User)
 
 	if err != nil { // Значит строка пустая.
-		e := new(Error)
-		e.Message = "Can't find user with slug " + slug + "\n"
-		resp, _ := json.Marshal(e)
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(resp)
+		sendError( "Can't find user with slug " + slug + "\n", 404, &w)
 		return
 	}
 
@@ -1423,14 +1331,7 @@ func threadCreate(w http.ResponseWriter, r *http.Request){
 	if err != nil {
 		if err.Error() == "pq: insert or update on table \"threads\" violates foreign key constraint \"threads_author_fkey\"" ||
 			err.Error() =="pq: insert or update on table \"threads\" violates foreign key constraint \"threads_forum_fkey\"" {
-			var e = new(Error)
-			e.Message = "Can't find user or forum" //with name " + thr.Author + "\n"
-			w.Header().Set("content-type", "application/json")
-
-			w.WriteHeader(http.StatusNotFound)
-			resp, _ := json.Marshal(e)
-
-			w.Write(resp)
+			sendError( "Can't find user or forum \n", 404, &w)
 			return
 		}
 		if err.Error() == "pq: duplicate key value violates unique constraint \"threads_title_key\""{ //Ошибка!
@@ -1529,14 +1430,7 @@ func forumCreate(w http.ResponseWriter, r *http.Request){
 	_, err = db.Exec("INSERT INTO forums(slug, title, author) VALUES ($1, $2, $3);", forum.Slug, forum.Title, existUser.NickName)
 	if err != nil {
 		if err.Error() == "pq: insert or update on table \"forums\" violates foreign key constraint \"forums_author_fkey\"" {
-			var e= new(Error)
-			e.Message = "Can't find user with name " + forum.User + "\n"
-			w.Header().Set("content-type", "application/json")
-
-			w.WriteHeader(http.StatusNotFound)
-			resp, _ := json.Marshal(e)
-
-			w.Write(resp)
+			sendError( "Can't find user with name " + forum.User + "\n", 404, &w)
 			return
 		}
 		if err.Error() == "pq: duplicate key value violates unique constraint \"forums_slug_key\"" {
@@ -1574,10 +1468,8 @@ func forumCreate(w http.ResponseWriter, r *http.Request){
 
 /*
 CREATE FORUM
-
 curl -i --header "Content-Type: application/json"   --request POST
 --data '{"slug":"stori123es-eabout","title":"Stoewries about som12ewe3ething",
 "user": "Gris21ha23"}'   http://127.0.0.1:8080/forum/create
-
 */
 
