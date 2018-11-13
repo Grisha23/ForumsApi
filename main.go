@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	_ "github.com/gorilla/mux" // Мультиплексор
-	_ "github.com/lib/pq"      //
+	"github.com/lib/pq"
+	_ "github.com/lib/pq" //
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -73,42 +74,41 @@ type PostDetail struct {
 	Thread *Thread `json:"thread"`
 }
 
+const (
+	DbUser     = "docker"
+	DbPassword = "docker"
+	DbName     = "docker"
+)
 
 var db *sql.DB
-
-
-const (
-	DB_USER     = "docker"
-	DB_PASSWORD = "docker"
-	DB_NAME     = "docker"
-)
 
 
 func init() {
 	var err error
 	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable",
-		DB_USER, DB_PASSWORD, DB_NAME)
+		DbUser, DbPassword, DbName)
 	db, err = sql.Open("postgres", dbinfo)
 	if err != nil {
-		panic(err)
+		//panic(err)
 	}
 
 	if err = db.Ping(); err != nil {
 		panic(err)
 	}
 
-	init, err := ioutil.ReadFile("./forum.sql")
-	_, err = db.Exec(string(init))
-
-	if err != nil {
-		panic(err)
-	}
+	//init, err := ioutil.ReadFile("./forum.sql")
+	//_, err = db.Exec(string(init))
+	//
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	fmt.Println("You connected to your database.")
-
 }
 
+
 func main(){
+
 	router := mux.NewRouter()
 
 	router.HandleFunc("/api/forum/create", forumCreate)
@@ -135,22 +135,36 @@ func main(){
 	return
 }
 
-func getUser(nickname string) *User {
+func getUser(nickname string) (*User, error) {
 	if nickname == "" {
-		return nil
+		return nil, nil
 	}
 
-	row := db.QueryRow("SELECT * FROM users WHERE nickname=$1", nickname)
+	row := db.QueryRow("SELECT about,email,fullname,nickname FROM users WHERE nickname=$1", nickname)
 
 	user := User{}
 
 	err := row.Scan(&user.About, &user.Email, &user.FullName, &user.NickName)
 
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
-	return &user
+	return &user, nil
+}
+
+func sendError(errText string, statusCode int, w *http.ResponseWriter) ([]byte, error){
+	e := new(Error)
+	e.Message = errText
+	resp, _ := json.Marshal(e)
+
+	// Проверка err json
+
+	(*w).Header().Set("content-type", "application/json")
+	(*w).WriteHeader(statusCode)
+	(*w).Write(resp)
+
+	return resp, nil
 }
 
 func userProfile(w http.ResponseWriter, r *http.Request)  {
@@ -158,20 +172,10 @@ func userProfile(w http.ResponseWriter, r *http.Request)  {
 	nickname := vars["nickname"]
 
 	if r.Method == http.MethodGet{
-		row := db.QueryRow("SELECT * FROM users WHERE nickname=$1", nickname)
-
-		user := User{}
-
-		err := row.Scan(&user.About, &user.Email, &user.FullName, &user.NickName)
+		user, err := getUser(nickname)
 
 		if err != nil {
-			e := new(Error)
-			e.Message =  "Can't find user with nickname " + nickname + "\n"
-			resp, _ := json.Marshal(e)
-			w.Header().Set("content-type", "application/json")
-
-			w.WriteHeader(http.StatusNotFound)
-			w.Write(resp)
+			sendError("Can't find user with nickname " + nickname + "\n", 404, &w)
 			return
 		}
 
@@ -199,60 +203,75 @@ func userProfile(w http.ResponseWriter, r *http.Request)  {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-// Проверка на нулевые значения. Если about не пришло например.
 
-	userExist := getUser(nickname)
+	aboutAdditional := ""
+	fullnameAdditional := ""
+	emailAdditional := ""
 
-	if userExist == nil {
-		e := new(Error)
-		e.Message =  "Can't find prifile with id " + nickname + "\n"
-		resp, _ := json.Marshal(e)
+	about := false
+	fullname := false
+	email := false
+
+	//additionalCount := 0
+	separator := ""
+
+	if userUpdate.About != ""{
+		about = true
+		aboutAdditional = "about='"+userUpdate.About+"'"
+	}
+	if userUpdate.FullName != ""{
+		fullname = true
+		if about {
+			separator = ","
+		}
+		fullnameAdditional = separator + "fullname='"+userUpdate.FullName+"'"
+		separator = ""
+	}
+	if userUpdate.Email != ""{
+		email = true
+		if about || fullname {
+			separator = ","
+		}
+		emailAdditional = separator+"email='"+userUpdate.Email+"'"
+	}
+
+	if !email && !fullname && !about {
+		user, err := getUser(nickname)
+
+		if err != nil {
+			sendError("Can't find prifile with id " + nickname + "\n", 404, &w)
+		}
+
+		resp, _ := json.Marshal(user)
 		w.Header().Set("content-type", "application/json")
 
-		w.WriteHeader(http.StatusNotFound)
-
 		w.Write(resp)
+
 		return
 	}
 
-	if userUpdate.About == ""{
-		userUpdate.About = userExist.About
-	}
-	if userUpdate.FullName == ""{
-		userUpdate.FullName = userExist.FullName
-	}
-	if userUpdate.Email == ""{
-		userUpdate.Email = userExist.Email
-	}
+	query := "UPDATE users SET " + aboutAdditional + fullnameAdditional + emailAdditional + " WHERE nickname='" + nickname + "' RETURNING " +
+		"about,email,fullname,nickname"
+	//row := db.QueryRow("UPDATE users SET about=$1, email=$2, fullname=$3 WHERE nickname=$4 RETURNING *", userUpdate.About, userUpdate.Email, userUpdate.FullName, nickname)
 
-	row := db.QueryRow("UPDATE users SET about=$1, email=$2, fullname=$3 WHERE nickname=$4 RETURNING *", userUpdate.About, userUpdate.Email, userUpdate.FullName, nickname)
+	row := db.QueryRow(query)
 
 	err = row.Scan(&userUpdate.About, &userUpdate.Email, &userUpdate.FullName, &userUpdate.NickName)
 
 	if err != nil {
-		if err.Error() == "pq: duplicate key value violates unique constraint \"users_email_key\""{
-			e := new(Error)
-			e.Message =  "Can't change prifile with id " + nickname + "\n"
-			resp, _ := json.Marshal(e)
-			w.Header().Set("content-type", "application/json")
-
-			w.WriteHeader(http.StatusConflict)
-
-			w.Write(resp)
-			return
-		}
-		if err.Error() == "sql: no rows in result set"{
-			e := new(Error)
-			e.Message =  "Can't find prifile with id " + nickname + "\n"
-			resp, _ := json.Marshal(e)
-			w.Header().Set("content-type", "application/json")
-
-			w.WriteHeader(http.StatusNotFound)
-
-			w.Write(resp)
+		if err == sql.ErrNoRows {
+			sendError("Can't find prifile with id " + nickname + "\n", 404, &w)
 			return
 		}
 
+		errorName := err.(*pq.Error).Code.Name()
+
+		if errorName == "unique_violation"{
+			sendError("Can't change prifile with id " + nickname + "\n", 409, &w)
+			return
+		}
+
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -261,9 +280,7 @@ func userProfile(w http.ResponseWriter, r *http.Request)  {
 
 	w.Write(resp)
 
-
 	return
-
 }
 
 /*
@@ -273,31 +290,27 @@ curl -i --header "Content-Type: application/json" --request POST --data '{"about
 */
 
 func userCreate(w http.ResponseWriter, r *http.Request)  {
-	if r.Method != http.MethodPost {
-		return
-	}
-
 	vars := mux.Vars(r)
 	nickname := vars["nickname"]
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, _ := ioutil.ReadAll(r.Body)
 
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	//if err != nil {
+	//	w.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
 
 	user := User{}
-	err = json.Unmarshal(body, &user)
+	err := json.Unmarshal(body, &user)
 	user.NickName = nickname
 
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	//if err != nil {
+	//	w.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
 
 	if user.NickName == "" || user.About == "" || user.Email == "" || user.FullName == "" {
-		http.Error(w, http.StatusText(405), 405)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -374,7 +387,7 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 
 	err = json.Unmarshal(body, &vote)
 
-	user := getUser(vote.Nickname)
+	user, err := getUser(vote.Nickname)
 
 	if user == nil {
 		e := new(Error)
@@ -1102,7 +1115,7 @@ func postDetails(w http.ResponseWriter, r *http.Request){ // related??? Полн
 	}
 	for index := range relatedObj {
 		if relatedObj[index] == "user" {
-			author := getUser(post.Author)
+			author, _ := getUser(post.Author)
 			postDetail.Author = author
 		}
 		if relatedObj[index] == "thread" {
@@ -1499,7 +1512,7 @@ func forumCreate(w http.ResponseWriter, r *http.Request){
 	forum := new(Forum)
 	err = json.Unmarshal(body, forum)
 
-	existUser := getUser(forum.User)
+	existUser, _ := getUser(forum.User)
 
 	if existUser == nil {
 		var e= new(Error)
