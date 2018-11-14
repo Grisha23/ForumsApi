@@ -91,3 +91,6 @@ CREATE TRIGGER thread_create
 BEFORE INSERT ON threads FOR EACH ROW
 EXECUTE PROCEDURE thread_create();
 
+CREATE INDEX ON forums (slug);
+CREATE INDEX ON users (nickname);
+

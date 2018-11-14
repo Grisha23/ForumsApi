@@ -75,12 +75,9 @@ type PostDetail struct {
 }
 
 const (
-	//DbUser     = "docker"
-	//DbPassword = "docker"
-	//DbName     = "docker"
-	DbUser     = "tpforumsapi"
-	DbPassword = "222"
-	DbName     = "forums"
+	DbUser     = "docker"
+	DbPassword = "docker"
+	DbName     = "docker"
 )
 
 var db *sql.DB
@@ -99,12 +96,12 @@ func init() {
 		panic(err)
 	}
 
-	//init, err := ioutil.ReadFile("./forum.sql")
-	//_, err = db.Exec(string(init))
-	//
-	//if err != nil {
-	//	panic(err)
-	//}
+	init, err := ioutil.ReadFile("./forum.sql")
+	_, err = db.Exec(string(init))
+
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("You connected to your database.")
 }
@@ -805,7 +802,6 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 			firstCreated = newPost.Created
 
 			if err != nil {
-				fmt.Println(err.Error())
 				sendError("Can't find parent post \n", 404, &w)
 				return
 			}
@@ -814,7 +810,6 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message, &newPost.Parent, &newPost.Thread)
 
 			if err != nil {
-				fmt.Println(err.Error())
 				sendError("Can't find parent post \n", 404, &w)
 				return
 			}
@@ -949,9 +944,8 @@ func postDetails(w http.ResponseWriter, r *http.Request){
 		err = row.Scan(&post.Author,&post.Created,&post.Forum,&post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
 
 		if err != nil {
-			fmt.Println(err.Error())
-				sendError("Can't find post with id "+id+"\n", 404, &w)
-				return
+			sendError("Can't find post with id "+id+"\n", 404, &w)
+			return
 		}
 
 		resp, _ := json.Marshal(post)
@@ -1050,13 +1044,7 @@ func forumUsers(w http.ResponseWriter, r *http.Request){
 	frm := getForum(slug)
 
 	if frm == nil {
-		e := new(Error)
-		e.Message =  "Can't find forum with slug " + slug + "\n"
-		resp, _ := json.Marshal(e)
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(resp)
+		sendError("Can't find forum with slug " + slug + "\n", 404, &w)
 		return
 	}
 
@@ -1113,7 +1101,7 @@ curl -i --header "Content-Type: application/json" --request GET http://127.0.0.1
 
 */
 
-func forumThreads(w http.ResponseWriter, r *http.Request){ // Добавить LIMIT, SINCE, DESC!
+func forumThreads(w http.ResponseWriter, r *http.Request){
 	if r.Method != http.MethodGet {
 		return
 	}
@@ -1138,6 +1126,11 @@ func forumThreads(w http.ResponseWriter, r *http.Request){ // Добавить L
 
 	vars := mux.Vars(r)
 	slug := vars["slug"]
+
+	if getForum(slug) == nil {
+		sendError("Can't find forum with slug " + slug + "\n", 404, &w)
+		return
+	}
 
 	var rows *sql.Rows
 	var err error
@@ -1179,17 +1172,7 @@ func forumThreads(w http.ResponseWriter, r *http.Request){ // Добавить L
 			return
 		}
 		thrs = append(thrs, thr)
-		}
-	 if getForum(slug) == nil {
-		 e := new(Error)
-		 		e.Message =  "Can't find forum with slug " + slug + "\n"
-		 		resp, _ := json.Marshal(e)
-		 	w.Header().Set("content-type", "application/json")
-
-		 	w.WriteHeader(http.StatusNotFound)
-		 		w.Write(resp)
-		 		return
-	 }
+	}
 
 	resp, _ := json.Marshal(thrs)
 	w.Header().Set("content-type", "application/json")
@@ -1258,8 +1241,10 @@ func threadCreate(w http.ResponseWriter, r *http.Request){
 
 	body, readErr := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
+
 	if readErr != nil {
-		http.Redirect(w,r,"/forum", http.StatusBadRequest)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	thr := Thread{}
@@ -1268,36 +1253,29 @@ func threadCreate(w http.ResponseWriter, r *http.Request){
 
 	params := mux.Vars(r)
 	slug := params["slug"]
-	//thrSlug := "slug8"
+
 	var err error
+	var row *sql.Row
 	if thr.Slug == "" {
-		_, err = db.Exec("INSERT INTO threads(author, created, forum, message, title) VALUES ($1, $2, $3, $4, $5);", thr.Author, thr.Created, slug,
+		row = db.QueryRow("INSERT INTO threads(author, created, forum, message, title) VALUES ($1, $2, $3, $4, $5) RETURNING *", thr.Author, thr.Created, slug,
 			thr.Message, thr.Title)
 	} else {
-		_, err = db.Exec("INSERT INTO threads(author, created, forum, message, title, slug) VALUES ($1, $2, $3, $4, $5, $6);", thr.Author, thr.Created, slug,
+		row = db.QueryRow("INSERT INTO threads(author, created, forum, message, title, slug) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *", thr.Author, thr.Created, slug,
 			thr.Message, thr.Title, thr.Slug)
 	}
 
+	newThr := Thread{}
+	var sqlSlug sql.NullString
+	err = row.Scan(&newThr.Id, &newThr.Author, &newThr.Created, &newThr.Forum, &newThr.Message, &sqlSlug, &newThr.Title, &newThr.Votes)
+
 	if err != nil {
-		fmt.Println(err.Error())
-		if err.Error() == "pq: insert or update on table \"threads\" violates foreign key constraint \"threads_author_fkey\"" ||
-			err.Error() =="pq: insert or update on table \"threads\" violates foreign key constraint \"threads_forum_fkey\"" {
+		errorName := err.(*pq.Error).Code.Name()
+
+		if errorName == "foreign_key_violation"{
 			sendError( "Can't find user or forum \n", 404, &w)
 			return
 		}
-		if err.Error() == "pq: duplicate key value violates unique constraint \"threads_title_key\""{ //Ошибка!
-			row := db.QueryRow("SELECT * FROM threads WHERE title=$1", thr.Title)
-			existThr := Thread{}
-			row.Scan(&existThr.Id, &existThr.Author, &existThr.Created, &existThr.Forum, &existThr.Message, &existThr.Slug, &existThr.Title, &existThr.Votes)
-			w.Header().Set("content-type", "application/json")
-
-			w.WriteHeader(http.StatusConflict)
-			resp, _ := json.Marshal(existThr)
-
-			w.Write(resp)
-			return
-		}
-		if err.Error() == "pq: duplicate key value violates unique constraint \"threads_slug_key\""{
+		if errorName == "unique_violation"{
 			row := db.QueryRow("SELECT * FROM threads WHERE slug=$1", thr.Slug)
 			existThr := Thread{}
 			row.Scan(&existThr.Id, &existThr.Author, &existThr.Created, &existThr.Forum, &existThr.Message, &existThr.Slug, &existThr.Title, &existThr.Votes)
@@ -1311,12 +1289,6 @@ func threadCreate(w http.ResponseWriter, r *http.Request){
 		}
 		return
 	}
-
-	row := db.QueryRow("SELECT * FROM threads WHERE author=$1 AND title=$2 AND forum=$3", thr.Author, thr.Title, thr.Forum)
-
-	newThr := Thread{}
-	var sqlSlug sql.NullString
-	err = row.Scan(&newThr.Id, &newThr.Author, &newThr.Created, &newThr.Forum, &newThr.Message, &sqlSlug, &newThr.Title, &newThr.Votes)
 
 	if !sqlSlug.Valid {
 		newThr.Slug = ""
@@ -1353,7 +1325,8 @@ func forumCreate(w http.ResponseWriter, r *http.Request){
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close() // важный пункт!
+
+	defer r.Body.Close()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -1369,13 +1342,17 @@ func forumCreate(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO forums(slug, title, author) VALUES ($1, $2, $3);", forum.Slug, forum.Title, existUser.NickName)
+	row := db.QueryRow("INSERT INTO forums(slug, title, author) VALUES ($1, $2, $3) RETURNING *", forum.Slug, forum.Title, existUser.NickName)
+
+	err = row.Scan(&forum.Posts, &forum.Slug, &forum.Threads, &forum.Title, &forum.User)
+
 	if err != nil {
-		if err.Error() == "pq: insert or update on table \"forums\" violates foreign key constraint \"forums_author_fkey\"" {
+		errorName := err.(*pq.Error).Code.Name()
+		if errorName == "foreign_key_violation" {
 			sendError( "Can't find user with name " + forum.User + "\n", 404, &w)
 			return
 		}
-		if err.Error() == "pq: duplicate key value violates unique constraint \"forums_slug_key\"" {
+		if errorName == "unique_violation" {
 			row := db.QueryRow("SELECT * FROM forums WHERE slug=$1", forum.Slug)
 			fr := Forum{}
 			row.Scan(&fr.Posts, &fr.Slug, &fr.Threads, &fr.Title, &fr.User)
@@ -1388,16 +1365,8 @@ func forumCreate(w http.ResponseWriter, r *http.Request){
 			return
 		}
 	}
-	newForum:=Forum{}
-	row := db.QueryRow("SELECT * FROM forums WHERE slug=$1", forum.Slug)
-	err = row.Scan(&newForum.Posts, &newForum.Slug, &newForum.Threads, &newForum.Title, &newForum.User)
 
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	resp, _ := json.Marshal(newForum)
+	resp, _ := json.Marshal(forum)
 
 	w.Header().Set("content-type", "application/json")
 
