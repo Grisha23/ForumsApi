@@ -399,19 +399,6 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 
 	err = json.Unmarshal(body, &vote)
 
-	user, err := getUser(vote.Nickname)
-
-	if user == nil {
-		e := new(Error)
-		e.Message =  "Can't find user with id " + slugOrId + "\n"
-		resp, _ := json.Marshal(e)
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(resp)
-		return
-	}
-
 	thr, err := getThread(slugOrId)
 
 	if err != nil {
@@ -427,7 +414,16 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 		"UPDATE SET voice=$4",
 		vote.Nickname, vote.Voice, thr.Id, vote.Voice)
 
+	if err != nil {
+		fmt.Println(err.Error())
+		if err.(*pq.Error).Code.Name() == "foreign_key_violation" {
+			sendError("Can't find user with id " + slugOrId + "\n", 404, &w)
+			return
+		}
+	}
+
 	if errGetVote != nil {
+
 		_, err = db.Exec("UPDATE threads SET votes=votes+$1 WHERE id=$2",
 			vote.Voice, thr.Id) // Returning * чтобы сэкономить на 1 запросе?
 		thr.Votes = thr.Votes + vote.Voice
