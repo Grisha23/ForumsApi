@@ -64,3 +64,30 @@ LANGUAGE plpgsql;
 CREATE TRIGGER change_message
 BEFORE UPDATE ON posts FOR EACH ROW WHEN (new.message=old.message)
 EXECUTE PROCEDURE check_message();
+
+
+CREATE OR REPLACE FUNCTION post_create() RETURNS TRIGGER AS '
+BEGIN
+  UPDATE forums SET posts=posts+1 WHERE slug=NEW.forum;
+  RETURN NEW;
+END;
+'
+LANGUAGE plpgsql;
+
+CREATE TRIGGER post_create
+BEFORE INSERT ON posts FOR EACH ROW
+EXECUTE PROCEDURE post_create();
+
+
+CREATE OR REPLACE FUNCTION thread_create() RETURNS TRIGGER AS '
+BEGIN
+  UPDATE forums SET threads=threads+1 WHERE slug=NEW.forum;
+  RETURN NEW;
+END;
+'
+LANGUAGE plpgsql;
+
+CREATE TRIGGER thread_create
+BEFORE INSERT ON threads FOR EACH ROW
+EXECUTE PROCEDURE thread_create();
+

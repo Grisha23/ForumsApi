@@ -805,6 +805,7 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 			firstCreated = newPost.Created
 
 			if err != nil {
+				fmt.Println(err.Error())
 				sendError("Can't find parent post \n", 404, &w)
 				return
 			}
@@ -813,6 +814,7 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message, &newPost.Parent, &newPost.Thread)
 
 			if err != nil {
+				fmt.Println(err.Error())
 				sendError("Can't find parent post \n", 404, &w)
 				return
 			}
@@ -830,14 +832,6 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 		data = append(data, newPost)
 
 		count++
-		_, err = db.Exec("UPDATE forums SET posts=posts+1 WHERE slug=$1", thr.Forum)
-
-
-
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
 
 	}
 
@@ -1285,6 +1279,7 @@ func threadCreate(w http.ResponseWriter, r *http.Request){
 	}
 
 	if err != nil {
+		fmt.Println(err.Error())
 		if err.Error() == "pq: insert or update on table \"threads\" violates foreign key constraint \"threads_author_fkey\"" ||
 			err.Error() =="pq: insert or update on table \"threads\" violates foreign key constraint \"threads_forum_fkey\"" {
 			sendError( "Can't find user or forum \n", 404, &w)
@@ -1328,8 +1323,6 @@ func threadCreate(w http.ResponseWriter, r *http.Request){
 	} else {
 		newThr.Slug = sqlSlug.String
 	}
-
-	_, err = db.Exec("UPDATE forums SET threads=threads+1 WHERE slug=$1", thr.Forum)
 
 	var forumSlug string
 	db.QueryRow("SELECT slug FROM forums WHERE slug=$1", thr.Forum).Scan(&forumSlug) // Неэффективно
