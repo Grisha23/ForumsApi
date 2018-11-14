@@ -459,9 +459,9 @@ curl -i --header "Content-Type: application/json" --request POST --data '{"nickn
 */
 
 func threadPosts(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		return
-	}
+	//if r.Method != http.MethodGet {
+	//	return
+	//}
 
 	vars := mux.Vars(r)
 	slugOrId := vars["slug_or_id"]
@@ -658,9 +658,9 @@ func threadDetails(w http.ResponseWriter, r *http.Request){
 
 		var many = " "
 
-		var messageAddition string = ""
+		var messageAddition = ""
 
-		var titleAddition string = ""
+		var titleAddition = ""
 
 		if thr.Message != "" {
 			messageAddition = " message='" + thr.Message + "' "
@@ -780,6 +780,7 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 		sendError("Can't find post with id " + slugOrId + "\n", 404, &w)
 		return
 	}
+
 	var firstCreated time.Time
 	var count = 0
 	for _, p := range posts{
@@ -795,16 +796,22 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 				return
 			}
 		}
-		var id int64
+
+		newPost := Post{}
 
 		if count == 0 { // Для того, чтобы все последующие добавления постов происхдили с той же датой и временем.
-			err := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING id, created", p.Author, thr.Forum, p.Message, p.Parent, thr.Id).Scan(&id, &firstCreated)
+			row := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING *", p.Author, thr.Forum, p.Message, p.Parent, thr.Id)
+			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message, &newPost.Parent, &newPost.Thread)
+			firstCreated = newPost.Created
+
 			if err != nil {
 				sendError("Can't find parent post \n", 404, &w)
 				return
 			}
 			} else {
-			err := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id", p.Author, thr.Forum, p.Message, p.Parent, thr.Id, firstCreated).Scan(&id)
+			row := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *", p.Author, thr.Forum, p.Message, p.Parent, thr.Id, firstCreated)
+			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message, &newPost.Parent, &newPost.Thread)
+
 			if err != nil {
 				sendError("Can't find parent post \n", 404, &w)
 				return
@@ -814,12 +821,6 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 		if err != nil{
 			break
 		}
-
-		row := db.QueryRow("SELECT * FROM posts WHERE id=$1", id)
-
-		newPost := Post{}
-
-		err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message, &newPost.Parent, &newPost.Thread)
 
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -895,14 +896,14 @@ func serviceClear(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	db.Query("TRUNCATE TABLE votes, users, posts, threads, forums;")
+	db.Query("TRUNCATE TABLE votes, users, posts, threads, forums")
 
 	w.WriteHeader(http.StatusOK)
 
 	return
 }
 
-func postDetails(w http.ResponseWriter, r *http.Request){ // related??? Полная хуйня в документации
+func postDetails(w http.ResponseWriter, r *http.Request){
 
 	vars := mux.Vars(r)
 	id := vars["id"]
