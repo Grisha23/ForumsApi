@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS posts (
 	forum CITEXT REFERENCES forums (slug),
 	id BIGSERIAL PRIMARY KEY,
 	isedited BOOLEAN DEFAULT FALSE,
-	message CITEXT NOT NULL,
+	message text NOT NULL,
 	parent BIGINT DEFAULT 0,
 	thread INTEGER NOT NULL REFERENCES threads (id)
 );
@@ -52,3 +52,15 @@ CREATE TABLE IF NOT EXISTS votes (
 
 GRANT ALL PRIVILEGES ON ALL TABLEs IN schema public to tpforumsapi;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO tpforumsapi;
+
+CREATE OR REPLACE FUNCTION check_message() RETURNS TRIGGER AS '
+BEGIN
+  NEW.isedited:=false;
+  RETURN NEW;
+END;
+'
+LANGUAGE plpgsql;
+
+CREATE TRIGGER change_message
+BEFORE UPDATE ON posts FOR EACH ROW WHEN (new.message=old.message)
+EXECUTE PROCEDURE check_message();

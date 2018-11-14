@@ -415,7 +415,7 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 		vote.Nickname, vote.Voice, thr.Id, vote.Voice)
 
 	if err != nil {
-		fmt.Println(err.Error())
+		//fmt.Println(err.Error())
 		if err.(*pq.Error).Code.Name() == "foreign_key_violation" {
 			sendError("Can't find user with id " + slugOrId + "\n", 404, &w)
 			return
@@ -929,37 +929,35 @@ func postDetails(w http.ResponseWriter, r *http.Request){
 			return
 		}
 
-		// Сверяем есть ли изменение в сообщении.
-
-		var oldMessage string
-
-		row := db.QueryRow("SELECT message FROM posts WHERE id=$1", id)
-
-		err = row.Scan(&oldMessage)
-
 		if err != nil{
 			sendError( "Can't find post with id " + id + "\n", 404, &w)
 			return
 		}
 
-		// Сверяем есть ли изменение в сообщении.
+		if post.Message == "" {
+			row := db.QueryRow("SELECT * FROM posts WHERE id=$1", id)
 
-		if post.Message != "" && post.Message != oldMessage{
-			res, err1 := db.Exec("UPDATE posts SET message=$1, isedited=true WHERE id=$2", post.Message, id)
-			count, _ := res.RowsAffected()
-			if err1 != nil || count == 0 {
-				sendError( "Can't find post with id " + id + "\n", 404, &w)
+			err = row.Scan(&post.Author,&post.Created,&post.Forum,&post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
+
+			if err != nil{
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
+
+			resp, _ := json.Marshal(post)
+			w.Header().Set("content-type", "application/json")
+
+			w.Write(resp)
+
+			return
 		}
-
-		row = db.QueryRow("SELECT * FROM posts WHERE id=$1", id)
-
+		row := db.QueryRow("UPDATE posts SET message=$1, isedited=true WHERE id=$2 RETURNING *", post.Message, id)
 		err = row.Scan(&post.Author,&post.Created,&post.Forum,&post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
 
-		if err != nil{
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+		if err != nil {
+			fmt.Println(err.Error())
+				sendError("Can't find post with id "+id+"\n", 404, &w)
+				return
 		}
 
 		resp, _ := json.Marshal(post)
@@ -1374,14 +1372,7 @@ func forumCreate(w http.ResponseWriter, r *http.Request){
 	existUser, _ := getUser(forum.User)
 
 	if existUser == nil {
-		var e= new(Error)
-		e.Message = "Can't find user with name " + forum.User + "\n"
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusNotFound)
-		resp, _ := json.Marshal(e)
-
-		w.Write(resp)
+		sendError( "Can't find user with name " + forum.User + "\n", 404, &w)
 		return
 	}
 
