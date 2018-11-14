@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
-	_ "github.com/gorilla/mux" // Мультиплексор
 	"github.com/lib/pq"
-	_ "github.com/lib/pq" //
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -82,14 +80,13 @@ const (
 
 var db *sql.DB
 
-
 func init() {
 	var err error
 	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable",
 		DbUser, DbPassword, DbName)
 	db, err = sql.Open("postgres", dbinfo)
 	if err != nil {
-		//panic(err)
+		panic(err)
 	}
 
 	if err = db.Ping(); err != nil {
