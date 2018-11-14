@@ -215,7 +215,6 @@ func userProfile(w http.ResponseWriter, r *http.Request)  {
 	fullname := false
 	email := false
 
-	//additionalCount := 0
 	separator := ""
 
 	if userUpdate.About != ""{
@@ -296,6 +295,7 @@ func userCreate(w http.ResponseWriter, r *http.Request)  {
 	nickname := vars["nickname"]
 
 	body, _ := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
 
 	//if err != nil {
 	//	w.WriteHeader(http.StatusInternalServerError)
@@ -316,44 +316,55 @@ func userCreate(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	err = db.QueryRow("INSERT INTO users(about, email, fullname, nickname) VALUES ($1,$2,$3,$4) RETURNING *;", user.About, user.Email, user.FullName, user.NickName).Scan(&user.About, &user.Email, &user.FullName, &user.NickName)
+	query := "INSERT INTO users(about, email, fullname, nickname) VALUES ($1,$2,$3,$4) RETURNING *"
+
+	err = db.QueryRow(query, user.About, user.Email, user.FullName, user.NickName).Scan(&user.About,
+		&user.Email, &user.FullName, &user.NickName)
 
 	if err != nil { // Значит пользователь присутствует // Нормальная проверка на ошибки?
 
-		users := make([]User, 0)
+		errorName := err.(*pq.Error).Code.Name()
 
-		rows, err := db.Query("SELECT * FROM users WHERE nickname=$1 OR email=$2", user.NickName, user.Email)
+		if errorName == "unique_violation"{
+			users := make([]User, 0)
 
-		if err != nil{
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+			rows, err := db.Query("SELECT * FROM users WHERE nickname=$1 OR email=$2", user.NickName, user.Email)
 
-		for rows.Next() {
-			usr := User{}
-
-			err := rows.Scan(&usr.About, &usr.Email, &usr.FullName, &usr.NickName)
-
-			if err != nil {
+			if err != nil{
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
-			users = append(users, usr)
+			for rows.Next() {
+				usr := User{}
+
+				err := rows.Scan(&usr.About, &usr.Email, &usr.FullName, &usr.NickName)
+
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				users = append(users, usr)
+			}
+
+			resp, _ := json.Marshal(users)
+			w.Header().Set("content-type", "application/json")
+
+			w.WriteHeader(http.StatusConflict)
+			w.Write(resp)
+
+			return
 		}
 
-		resp, _ := json.Marshal(users)
-		w.Header().Set("content-type", "application/json")
-
-		w.WriteHeader(http.StatusConflict)
-		w.Write(resp)
-
+		w.WriteHeader(http.StatusInternalServerError)
 		return
+
 	}
 
 	resp, err := json.Marshal(user)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("content-type", "application/json")
@@ -368,7 +379,6 @@ func userCreate(w http.ResponseWriter, r *http.Request)  {
 curl -i --header "Content-Type: application/json" --request POST --data '{"about":"text about user" , "email": "myemail@ddf.ru", "fullname": "Grigory"}' http://127.0.0.1:8080/user/grisha23/create
 
 */
-
 func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить изменение количества голосов за ветвь + добавлено. Проверить метод еще раз, что-то не доделано. Вечер воскр.
 	if r.Method != http.MethodPost{
 		return
@@ -383,7 +393,7 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 	defer r.Body.Close()
 
 	if err != nil {
-	w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -402,16 +412,7 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 		return
 	}
 
-	thrId, slug := strconv.Atoi(slugOrId)
-	var row *sql.Row
-	if slug != nil {
-		row = db.QueryRow("SELECT id FROM threads WHERE slug=$1;", slugOrId)
-	} else {
-		row = db.QueryRow("SELECT id FROM threads WHERE id=$1;", thrId)
-	}
-
-	var id int64
-	err = row.Scan(&id)
+	thr, err := getThread(slugOrId)
 
 	if err != nil {
 		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
@@ -419,20 +420,26 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 	}
 
 	oldVote := Vote{}
-	err = db.QueryRow("SELECT voice FROM votes WHERE nickname=$1 AND thread=$2", vote.Nickname, id).Scan(&oldVote.Voice)
-	if err != nil {
-		_, err = db.Exec("INSERT INTO votes(nickname, voice, thread) VALUES ($1,$2,$3) ", vote.Nickname, vote.Voice, id)
-		_, err = db.Exec("UPDATE threads SET votes=votes+$1 WHERE id=$2",vote.Voice, id) // Returning * чтобы сэкономить на 1 запросе?
+	errGetVote := db.QueryRow("SELECT voice FROM votes WHERE nickname=$1 AND thread=$2", vote.Nickname, thr.Id).Scan(&oldVote.Voice)
+
+	_, err = db.Exec("INSERT INTO votes(nickname, voice, thread) VALUES ($1,$2,$3) " +
+		"ON CONFLICT (nickname, thread) DO " +
+		"UPDATE SET voice=$4",
+		vote.Nickname, vote.Voice, thr.Id, vote.Voice)
+
+	if errGetVote != nil {
+		_, err = db.Exec("UPDATE threads SET votes=votes+$1 WHERE id=$2",
+			vote.Voice, thr.Id) // Returning * чтобы сэкономить на 1 запросе?
+		thr.Votes = thr.Votes + vote.Voice
 	} else {
 		if oldVote.Voice != vote.Voice {
-			_, err = db.Exec("UPDATE votes SET voice=$2 WHERE nickname=$1 AND thread=$3 ", vote.Nickname, vote.Voice, id)
-
-
-
-			if vote.Voice == -1{
-				_, err = db.Exec("UPDATE threads SET votes=votes-2 WHERE id=$1", id) // Returning * чтобы сэкономить на 1 запросе?
+			//_, err = db.Exec("UPDATE votes SET voice=$2 WHERE nickname=$1 AND thread=$3 ", vote.Nickname, vote.Voice, thr.Id)
+			if vote.Voice == -1 {
+				_, err = db.Exec("UPDATE threads SET votes=votes-2 WHERE id=$1", thr.Id) // Returning * чтобы сэкономить на 1 запросе?
+				thr.Votes = thr.Votes - 2
 			} else {
-				_, err = db.Exec("UPDATE threads SET votes=votes+2 WHERE id=$1", id) // Returning * чтобы сэкономить на 1 запросе?
+				_, err = db.Exec("UPDATE threads SET votes=votes+2 WHERE id=$1", thr.Id) // Returning * чтобы сэкономить на 1 запросе?
+				thr.Votes = thr.Votes + 2
 			}
 		}
 	}
@@ -441,11 +448,6 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 		return
 	}
-
-	row = db.QueryRow("SELECT * FROM threads WHERE id=$1;", id)
-
-	thr := Thread{}
-	err = row.Scan(&thr.Id, &thr.Author, &thr.Created, &thr.Forum,  &thr.Message, &thr.Slug, &thr.Title, &thr.Votes)
 
 	resp, _ := json.Marshal(thr)
 	w.Header().Set("content-type", "application/json")
@@ -459,44 +461,6 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 curl -i --header "Content-Type: application/json" --request POST --data '{"nickname": "Grisha23", "voice": -1}' http://127.0.0.1:8080/thread/19/vote
 
 */
-
-func getParentPosts(threadId int32, limit string, since string, desc bool)  ([]Post, error){
-	if since == "" {
-		since = "=0"
-	}
-	var sortType string
-	if desc == false{
-		sortType = "ASC"
-	} else {
-		sortType = "DESC"
-	}
-
-	query := "SELECT * FROM posts WHERE thread=$1 AND parent=0 AND id>" + since + " ORDER BY id " + sortType + " LIMIT " + limit
-	rows, err := db.Query(query, threadId)
-
-	if err != nil {
-		return nil, err
-	}
-
-	posts := make([]Post, 0)
-
-	for rows.Next(){
-		post := Post{}
-
-		err = rows.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
-
-		if err != nil {
-			return nil, err
-		}
-
-		//post.Childs = []int64(arr)
-
-		posts = append(posts, post)
-	}
-
-	return posts, nil
-
-}
 
 func threadPosts(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -633,11 +597,6 @@ func threadPosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//intLimit, _ := strconv.Atoi(limitVal)
-	////childPosts := make([]Post, 0)
-	//responsePosts := make([]Post, 0)
-	//var count= 0
-
 	defer rows.Close()
 	posts := make([]Post, 0)
 	var i = 0
@@ -675,6 +634,7 @@ func threadDetails(w http.ResponseWriter, r *http.Request){
 	if r.Method == http.MethodPost{
 
 		body, err := ioutil.ReadAll(r.Body)
+		defer r.Body.Close()
 
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -800,6 +760,7 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 	slugOrId := vars["slug_or_id"]
 
 	body, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
