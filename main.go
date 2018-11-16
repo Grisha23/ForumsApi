@@ -73,9 +73,12 @@ type PostDetail struct {
 }
 
 const (
-	DbUser     = "docker"
-	DbPassword = "docker"
-	DbName     = "docker"
+	//DbUser     = "docker"
+	//DbPassword = "docker"
+	//DbName     = "docker"
+	DbUser     = "tpforumsapi"
+	DbPassword = "222"
+	DbName = "forums"
 )
 
 var db *sql.DB
@@ -93,14 +96,25 @@ func init() {
 		panic(err)
 	}
 
-	init, err := ioutil.ReadFile("./forum.sql")
-	_, err = db.Exec(string(init))
-
-	if err != nil {
-		panic(err)
-	}
+	//init, err := ioutil.ReadFile("./forum.sql")
+	//_, err = db.Exec(string(init))
+	//
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	fmt.Println("You connected to your database.")
+}
+
+
+func AccessLogMiddleware (mux *mux.Router,) http.HandlerFunc   {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		mux.ServeHTTP(w, r)
+
+		fmt.Println("method", r.Method, "; url", r.URL.Path)
+
+	})
 }
 
 
@@ -127,8 +141,10 @@ func main(){
 	router.HandleFunc(`/api/user/{nickname}/create`, userCreate)
 	router.HandleFunc(`/api/user/{nickname}/profile`, userProfile)
 
+	siteHandler := AccessLogMiddleware(router)
+
 	http.Handle("/", router)
-	http.ListenAndServe(":5000",nil)
+	http.ListenAndServe(":5000",siteHandler)
 	return
 }
 
@@ -373,7 +389,7 @@ func userCreate(w http.ResponseWriter, r *http.Request)  {
 curl -i --header "Content-Type: application/json" --request POST --data '{"about":"text about user" , "email": "myemail@ddf.ru", "fullname": "Grigory"}' http://127.0.0.1:8080/user/grisha23/create
 
 */
-func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить изменение количества голосов за ветвь + добавлено. Проверить метод еще раз, что-то не доделано. Вечер воскр.
+func threadVote(w http.ResponseWriter, r *http.Request)  {
 	if r.Method != http.MethodPost{
 		return
 	}
@@ -396,6 +412,8 @@ func threadVote(w http.ResponseWriter, r *http.Request)  { // Добавить �
 	thr, err := getThread(slugOrId)
 
 	if err != nil {
+		//errorName := err.(*pq.Error).Code.Name()
+		//if errorName ==
 		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 		return
 	}
@@ -729,13 +747,21 @@ func getThread(slug string) (*Thread, error) {
 		row = db.QueryRow("SELECT * FROM threads WHERE id=$1;", thrId)
 	}
 
-	thr := new(Thread)
-	err = row.Scan(&thr.Id, &thr.Author, &thr.Created, &thr.Forum, &thr.Message, &thr.Slug, &thr.Title, &thr.Votes)
+	var sqlSlug sql.NullString
 
-	if err != nil {
-		return nil, err
+	thr := new(Thread)
+	err = row.Scan(&thr.Id, &thr.Author, &thr.Created, &thr.Forum, &thr.Message, &sqlSlug, &thr.Title, &thr.Votes)
+
+	if !sqlSlug.Valid {
+		thr.Slug = ""
+	} else {
+		thr.Slug = sqlSlug.String
 	}
 
+	if err != nil {
+		//fmt.Println("Error: ", err.Error())
+		return nil, err
+	}
 
 	return thr, nil
 }
@@ -768,49 +794,63 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 
 	data := make([]Post,0)
 
+	//thrId, err := strconv.Atoi(slugOrId)
+	//var id string
+	//if err != nil {
+	//	id = strconv.Itoa(thrId)
+	//} else {
+	//	id = slugOrId
+	//}
+
 	thr, err := getThread(slugOrId)
 
 	if err != nil{
-		sendError("Can't find post with id " + slugOrId + "\n", 404, &w)
+		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 		return
 	}
 
 	var firstCreated time.Time
 	var count = 0
 	for _, p := range posts{
-		parentPost := Post{}
+		//parentPost := Post{}
 
-		if p.Parent != 0 { // Проверка на сущетсвование родтельского поста.
-
-			row := db.QueryRow("SELECT id FROM posts WHERE id=$1 AND thread=$2 AND forum=$3", p.Parent, thr.Id, thr.Forum)
-
-			err := row.Scan(&parentPost.Id)
-			if err != nil {
-				sendError("Parent post was created in another thread \n", 409, &w)
-				return
-			}
-		}
+		//if p.Parent != 0 { // Проверка на сущетсвование родтельского поста.
+		//
+		//	row := db.QueryRow("SELECT id FROM posts WHERE id=$1 AND thread=$2", p.Parent, thr.Id)
+		//
+		//	err := row.Scan(&parentPost.Id)
+		//	if err != nil {
+		//		sendError("Parent post was created in another thread \n", 409, &w)
+		//		return
+		//	}
+		//}
 
 		newPost := Post{}
-
 		if count == 0 { // Для того, чтобы все последующие добавления постов происхдили с той же датой и временем.
 			row := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING *", p.Author, thr.Forum, p.Message, p.Parent, thr.Id)
 			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message, &newPost.Parent, &newPost.Thread)
 			firstCreated = newPost.Created
-
-			if err != nil {
-				sendError("Can't find parent post \n", 404, &w)
-				return
-			}
-			} else {
-			row := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *", p.Author, thr.Forum, p.Message, p.Parent, thr.Id, firstCreated)
+		} else {
+			row := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5, $6) RETURNING *", p.Author, thr.Forum, p.Message, p.Parent, thr.Id, firstCreated)
 			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message, &newPost.Parent, &newPost.Thread)
+		}
 
-			if err != nil {
+
+		if err != nil {
+			errorName := err.(*pq.Error).Code.Name()
+			if err.Error() == "pq: Parent post exc" {
+				sendError("Parent post was created in another thread \n", 409, &w)
+				return
+			}
+
+			if errorName == "foreign_key_violation" {
 				sendError("Can't find parent post \n", 404, &w)
 				return
 			}
-			}
+
+			sendError("Can't find parent post \n", 404, &w)
+			return
+		}
 
 		if err != nil{
 			break

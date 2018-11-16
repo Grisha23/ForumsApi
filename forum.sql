@@ -1,8 +1,8 @@
--- DROP TABLE votes CASCADE;
--- DROP TABLE users CASCADE;
--- DROP TABLE forums CASCADE;
--- DROP TABLE posts CASCADE;
--- DROP TABLE threads CASCADE;
+DROP TABLE votes CASCADE;
+DROP TABLE users CASCADE;
+DROP TABLE forums CASCADE;
+DROP TABLE posts CASCADE;
+DROP TABLE threads CASCADE;
 
 CREATE EXTENSION IF NOT EXISTS citext;
 
@@ -68,6 +68,9 @@ EXECUTE PROCEDURE check_message();
 
 CREATE OR REPLACE FUNCTION post_create() RETURNS TRIGGER AS '
 BEGIN
+  IF NEW.parent<>0 AND NOT EXISTS (SELECT id FROM posts WHERE id=NEW.parent AND thread=NEW.thread) THEN
+    RAISE ''Parent post exc'';
+  END IF;
   UPDATE forums SET posts=posts+1 WHERE slug=NEW.forum;
   RETURN NEW;
 END;
