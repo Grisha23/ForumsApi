@@ -73,12 +73,12 @@ type PostDetail struct {
 }
 
 const (
-	DbUser     = "docker"
-	DbPassword = "docker"
-	DbName     = "docker"
-	//DbUser     = "tpforumsapi"
-	//DbPassword = "222"
-	//DbName = "forums"
+	//DbUser     = "docker"
+	//DbPassword = "docker"
+	//DbName     = "docker"
+	DbUser     = "tpforumsapi"
+	DbPassword = "222"
+	DbName = "forums_func"
 )
 
 var db *sql.DB
@@ -141,10 +141,10 @@ func main(){
 	router.HandleFunc(`/api/user/{nickname}/create`, userCreate)
 	router.HandleFunc(`/api/user/{nickname}/profile`, userProfile)
 
-	//siteHandler := AccessLogMiddleware(router)
+	siteHandler := AccessLogMiddleware(router)
 
 	http.Handle("/", router)
-	http.ListenAndServe(":5000", nil)
+	http.ListenAndServe(":5000", siteHandler)
 	return
 }
 
@@ -217,34 +217,34 @@ func userProfile(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	aboutAdditional := ""
-	fullnameAdditional := ""
-	emailAdditional := ""
+	//aboutAdditional := ""
+	//fullnameAdditional := ""
+	//emailAdditional := ""
 
 	about := false
 	fullname := false
 	email := false
 
-	separator := ""
+	//separator := ""
 
 	if userUpdate.About != ""{
 		about = true
-		aboutAdditional = "about='"+userUpdate.About+"'"
+		//aboutAdditional = "about='"+userUpdate.About+"'"
 	}
 	if userUpdate.FullName != ""{
 		fullname = true
-		if about {
-			separator = ","
-		}
-		fullnameAdditional = separator + "fullname='"+userUpdate.FullName+"'"
-		separator = ""
+		//if about {
+		//	separator = ","
+		//}
+		//fullnameAdditional = separator + "fullname='"+userUpdate.FullName+"'"
+		//separator = ""
 	}
 	if userUpdate.Email != ""{
 		email = true
-		if about || fullname {
-			separator = ","
-		}
-		emailAdditional = separator+"email='"+userUpdate.Email+"'"
+		//if about || fullname {
+		//	separator = ","
+		//}
+		//emailAdditional = separator+"email='"+userUpdate.Email+"'"
 	}
 
 	if !email && !fullname && !about {
@@ -261,15 +261,40 @@ func userProfile(w http.ResponseWriter, r *http.Request)  {
 
 		return
 	}
+	var query string
+	var row *sql.Row
+	//query := "UPDATE users SET " + aboutAdditional + fullnameAdditional + emailAdditional + " WHERE nickname=$1 RETURNING " +
+	//	"about,email,fullname,nickname"
+	//
+	//row := db.QueryRow(query,nickname)
 
-	query := "UPDATE users SET " + aboutAdditional + fullnameAdditional + emailAdditional + " WHERE nickname=$1 RETURNING " +
-		"about,email,fullname,nickname"
-
-	row := db.QueryRow(query,nickname)
+	if about && fullname && email {
+		query = "UPDATE users SET about=$1, fullname=$2, email=$3 WHERE nickname=$4 RETURNING about,email,fullname,nickname"
+		row = db.QueryRow(query, userUpdate.About, userUpdate.FullName, userUpdate.Email, nickname)
+	} else if about && fullname && !email {
+		query = "UPDATE users SET about=$1, fullname=$2 WHERE nickname=$3 RETURNING about,email,fullname,nickname"
+		row = db.QueryRow(query, userUpdate.About, userUpdate.FullName, nickname)
+	} else if about && !fullname && email {
+		query = "UPDATE users SET about=$1, email=$2 WHERE nickname=$3 RETURNING about,email,fullname,nickname"
+		row = db.QueryRow(query, userUpdate.About, userUpdate.Email, nickname)
+	} else if about && !fullname && !email {
+		query = "UPDATE users SET about=$1 WHERE nickname=$2 RETURNING about,email,fullname,nickname"
+		row = db.QueryRow(query, userUpdate.About, nickname)
+	} else if !about && fullname && email {
+		query = "UPDATE users SET fullname=$1, email=$2 WHERE nickname=$3 RETURNING about,email,fullname,nickname"
+		row = db.QueryRow(query, userUpdate.FullName, userUpdate.Email, nickname)
+	} else if !about && fullname && !email {
+		query = "UPDATE users SET fullname=$1 WHERE nickname=$2 RETURNING about,email,fullname,nickname"
+		row = db.QueryRow(query, userUpdate.FullName, nickname)
+	} else if !about && !fullname && email {
+		query = "UPDATE users SET email=$1 WHERE nickname=$2 RETURNING about,email,fullname,nickname"
+		row = db.QueryRow(query, userUpdate.Email, nickname)
+	}
 
 	err = row.Scan(&userUpdate.About, &userUpdate.Email, &userUpdate.FullName, &userUpdate.NickName)
 
 	if err != nil {
+		fmt.Println(err.Error())
 		if err == sql.ErrNoRows {
 			sendError("Can't find prifile with id " + nickname + "\n", 404, &w)
 			return
@@ -331,7 +356,7 @@ func userCreate(w http.ResponseWriter, r *http.Request)  {
 	err = db.QueryRow(query, user.About, user.Email, user.FullName, user.NickName).Scan(&user.About,
 		&user.Email, &user.FullName, &user.NickName)
 
-	if err != nil { // Значит пользователь присутствует // Нормальная проверка на ошибки?
+	if err != nil {
 
 		errorName := err.(*pq.Error).Code.Name()
 
@@ -820,18 +845,6 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 	var firstCreated time.Time
 	var count = 0
 	for _, p := range posts{
-		//parentPost := Post{}
-
-		//if p.Parent != 0 { // Проверка на сущетсвование родтельского поста.
-		//
-		//	row := db.QueryRow("SELECT id FROM posts WHERE id=$1 AND thread=$2", p.Parent, thr.Id)
-		//
-		//	err := row.Scan(&parentPost.Id)
-		//	if err != nil {
-		//		sendError("Parent post was created in another thread \n", 409, &w)
-		//		return
-		//	}
-		//}
 
 		newPost := Post{}
 		if count == 0 { // Для того, чтобы все последующие добавления постов происхдили с той же датой и временем.
@@ -864,15 +877,6 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 			sendError("Can't find parent post \n", 404, &w)
 			return
 		}
-
-		//if err != nil{
-		//	break
-		//}
-		//
-		//if err != nil {
-		//	w.WriteHeader(http.StatusInternalServerError)
-		//	return
-		//}
 
 		data = append(data, newPost)
 
@@ -1045,7 +1049,7 @@ func postDetails(w http.ResponseWriter, r *http.Request){
 			postDetail.Thread = thread
 		}
 		if relatedObj[index] == "forum" {
-			forum := getForum(post.Forum)
+			forum, _ := getForum(post.Forum)
 			postDetail.Forum = forum
 		}
 	}
@@ -1093,7 +1097,7 @@ func forumUsers(w http.ResponseWriter, r *http.Request){
 	vars := mux.Vars(r)
 	slug := vars["slug"]
 
-	frm := getForum(slug)
+	frm, _ := getForum(slug)
 
 	if frm == nil {
 		sendError("Can't find forum with slug " + slug + "\n", 404, &w)
@@ -1119,6 +1123,7 @@ func forumUsers(w http.ResponseWriter, r *http.Request){
 	}
 
 	if err != nil {
+		fmt.Println(err.Error())
 		sendError( "Can't find forum with slug " + slug + "\n", 404, &w)
 		return
 	}
@@ -1178,14 +1183,16 @@ func forumThreads(w http.ResponseWriter, r *http.Request){
 
 	vars := mux.Vars(r)
 	slug := vars["slug"]
-
-	if getForum(slug) == nil {
+	frm, _ := getForum(slug)  // Исправить
+	if frm == nil {
 		sendError("Can't find forum with slug " + slug + "\n", 404, &w)
 		return
 	}
 
 	var rows *sql.Rows
 	var err error
+
+	//query := " ...EXISTS SELECT 1 FROM forums WHERE slug=$1..."
 
 	if limit && !since && !desc {
 		rows, err = db.Query("SELECT * FROM threads WHERE forum = $1 ORDER BY created LIMIT $2;", slug, limitVal)
@@ -1244,15 +1251,15 @@ func forumThreads(w http.ResponseWriter, r *http.Request){
 	return
 }
 
-func getForum(slugOrId string) *Forum {
+func getForum(slugOrId string) (*Forum,error) {
 	forum := Forum{}
 	err := db.QueryRow("SELECT * FROM forums WHERE slug=$1", slugOrId).Scan(&forum.Posts, &forum.Slug, &forum.Threads, &forum.Title, &forum.User)
 
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
-	return &forum
+	return &forum, nil
 }
 
 /*
@@ -1268,12 +1275,7 @@ func forumDetails(w http.ResponseWriter, r *http.Request){
 	}
 	vars := mux.Vars(r)
 	slug := vars["slug"]
-	row := db.QueryRow("SELECT * FROM forums WHERE slug=$1", slug)
-
-
-	frm := new(Forum)
-
-	err := row.Scan(&frm.Posts, &frm.Slug, &frm.Threads, &frm.Title, &frm.User)
+	frm, err := getForum(slug)
 
 	if err != nil { // Значит строка пустая.
 		sendError( "Can't find user with slug " + slug + "\n", 404, &w)
