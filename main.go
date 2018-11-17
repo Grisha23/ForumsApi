@@ -141,10 +141,10 @@ func main(){
 	router.HandleFunc(`/api/user/{nickname}/create`, userCreate)
 	router.HandleFunc(`/api/user/{nickname}/profile`, userProfile)
 
-	siteHandler := AccessLogMiddleware(router)
+	//siteHandler := AccessLogMiddleware(router)
 
 	http.Handle("/", router)
-	http.ListenAndServe(":5000", siteHandler)
+	http.ListenAndServe(":5000", nil)
 	return
 }
 
