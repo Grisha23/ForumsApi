@@ -21,10 +21,10 @@ RUN echo "listen_addresses='*'" >> /etc/postgresql/$PGVER/main/postgresql.conf
 USER root
 
 # Установка golang
-RUN apt install -y golang-$GOVER git
+RUN apt install -y golang-1.10 git
 
 # Выставляем переменную окружения для сборки проекта
-ENV GOROOT /usr/lib/go-$GOVER
+ENV GOROOT /usr/lib/go-1.10
 ENV GOPATH /opt/go
 ENV PATH $GOROOT/bin:$GOPATH/bin:/usr/local/go/bin:$PATH
 
