@@ -73,12 +73,12 @@ type PostDetail struct {
 }
 
 const (
-	//DbUser     = "docker"
-	//DbPassword = "docker"
-	//DbName     = "docker"
-	DbUser     = "tpforumsapi"
-	DbPassword = "222"
-	DbName = "forums"
+	DbUser     = "docker"
+	DbPassword = "docker"
+	DbName     = "docker"
+	//DbUser     = "tpforumsapi"
+	//DbPassword = "222"
+	//DbName = "forums"
 )
 
 var db *sql.DB
@@ -96,12 +96,12 @@ func init() {
 		panic(err)
 	}
 
-	//init, err := ioutil.ReadFile("./forum.sql")
-	//_, err = db.Exec(string(init))
-	//
-	//if err != nil {
-	//	panic(err)
-	//}
+	init, err := ioutil.ReadFile("./forum.sql")
+	_, err = db.Exec(string(init))
+
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("You connected to your database.")
 }
@@ -112,7 +112,7 @@ func AccessLogMiddleware (mux *mux.Router,) http.HandlerFunc   {
 
 		mux.ServeHTTP(w, r)
 
-		fmt.Println("method", r.Method, "; url", r.URL.Path)
+		//fmt.Println("method", r.Method, "; url", r.URL.Path)
 
 	})
 }
@@ -141,10 +141,10 @@ func main(){
 	router.HandleFunc(`/api/user/{nickname}/create`, userCreate)
 	router.HandleFunc(`/api/user/{nickname}/profile`, userProfile)
 
-	siteHandler := AccessLogMiddleware(router)
+	//siteHandler := AccessLogMiddleware(router)
 
 	http.Handle("/", router)
-	http.ListenAndServe(":5000",siteHandler)
+	http.ListenAndServe(":5000", nil)
 	return
 }
 
@@ -827,12 +827,16 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 
 		newPost := Post{}
 		if count == 0 { // Для того, чтобы все последующие добавления постов происхдили с той же датой и временем.
-			row := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING *", p.Author, thr.Forum, p.Message, p.Parent, thr.Id)
-			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message, &newPost.Parent, &newPost.Thread)
+			row := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING *",
+				p.Author, thr.Forum, p.Message, p.Parent, thr.Id)
+			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
+				&newPost.Parent, &newPost.Thread)
 			firstCreated = newPost.Created
 		} else {
-			row := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5, $6) RETURNING *", p.Author, thr.Forum, p.Message, p.Parent, thr.Id, firstCreated)
-			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message, &newPost.Parent, &newPost.Thread)
+			row := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5, $6) RETURNING *",
+				p.Author, thr.Forum, p.Message, p.Parent, thr.Id, firstCreated)
+			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
+				&newPost.Parent, &newPost.Thread)
 		}
 
 
