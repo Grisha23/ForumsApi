@@ -6,8 +6,6 @@
 
 CREATE EXTENSION IF NOT EXISTS citext;
 
-SET synchronous_commit TO off;
-
 CREATE TABLE IF NOT EXISTS users (
 	about CITEXT,
 	email CITEXT NOT NULL UNIQUE,

@@ -112,14 +112,14 @@ func AccessLogMiddleware (mux *mux.Router,) http.HandlerFunc   {
 
 		mux.ServeHTTP(w, r)
 
-		//fmt.Println("method", r.Method, "; url", r.URL.Path)
+		fmt.Println("method", r.Method, "; url", r.URL.Path)
 
 	})
 }
 
 
 func main(){
-
+	defer db.Close()
 	router := mux.NewRouter()
 
 	router.HandleFunc("/api/forum/create", forumCreate)
@@ -141,10 +141,10 @@ func main(){
 	router.HandleFunc(`/api/user/{nickname}/create`, userCreate)
 	router.HandleFunc(`/api/user/{nickname}/profile`, userProfile)
 
-	//siteHandler := AccessLogMiddleware(router)
+	siteHandler := AccessLogMiddleware(router)
 
 	http.Handle("/", router)
-	http.ListenAndServe(":5000", nil)
+	http.ListenAndServe(":5000", siteHandler)
 	return
 }
 
@@ -262,10 +262,10 @@ func userProfile(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	query := "UPDATE users SET " + aboutAdditional + fullnameAdditional + emailAdditional + " WHERE nickname='" + nickname + "' RETURNING " +
+	query := "UPDATE users SET " + aboutAdditional + fullnameAdditional + emailAdditional + " WHERE nickname=$1 RETURNING " +
 		"about,email,fullname,nickname"
 
-	row := db.QueryRow(query)
+	row := db.QueryRow(query,nickname)
 
 	err = row.Scan(&userUpdate.About, &userUpdate.Email, &userUpdate.FullName, &userUpdate.NickName)
 
@@ -601,6 +601,7 @@ func threadPosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
+		fmt.Println(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -614,11 +615,15 @@ func threadPosts(w http.ResponseWriter, r *http.Request) {
 
 		err = rows.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
 		if err != nil {
+			fmt.Println(err.Error())
+
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		//err = arr.Scan(&post.Childs)
 		if err != nil {
+			fmt.Println(err.Error())
+
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -809,6 +814,9 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
+	t, err := db.Begin()
+	_, err = t.Exec("SET LOCAL synchronous_commit = OFF")
+
 	var firstCreated time.Time
 	var count = 0
 	for _, p := range posts{
@@ -827,13 +835,13 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 
 		newPost := Post{}
 		if count == 0 { // Для того, чтобы все последующие добавления постов происхдили с той же датой и временем.
-			row := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING *",
+			row := t.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING *",
 				p.Author, thr.Forum, p.Message, p.Parent, thr.Id)
 			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
 				&newPost.Parent, &newPost.Thread)
 			firstCreated = newPost.Created
 		} else {
-			row := db.QueryRow("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5, $6) RETURNING *",
+			row := t.QueryRow("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5, $6) RETURNING *",
 				p.Author, thr.Forum, p.Message, p.Parent, thr.Id, firstCreated)
 			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
 				&newPost.Parent, &newPost.Thread)
@@ -842,6 +850,7 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 
 		if err != nil {
 			errorName := err.(*pq.Error).Code.Name()
+			t.Rollback()
 			if err.Error() == "pq: Parent post exc" {
 				sendError("Parent post was created in another thread \n", 409, &w)
 				return
@@ -856,14 +865,14 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 			return
 		}
 
-		if err != nil{
-			break
-		}
-
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		//if err != nil{
+		//	break
+		//}
+		//
+		//if err != nil {
+		//	w.WriteHeader(http.StatusInternalServerError)
+		//	return
+		//}
 
 		data = append(data, newPost)
 
@@ -877,6 +886,8 @@ func postCreate(w http.ResponseWriter, r *http.Request)  {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	t.Commit()
 
 	w.Header().Set("content-type", "application/json")
 
@@ -1197,6 +1208,7 @@ func forumThreads(w http.ResponseWriter, r *http.Request){
 	}
 
 	if err != nil {
+		fmt.Println(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -1204,11 +1216,20 @@ func forumThreads(w http.ResponseWriter, r *http.Request){
 	defer rows.Close()
 
 	thrs := make([]Thread, 0)
-
+	var nullSlug sql.NullString
 	for rows.Next() {
 		thr := Thread{}
-		err := rows.Scan(&thr.Id, &thr.Author, &thr.Created, &thr.Forum,  &thr.Message, &thr.Slug, &thr.Title, &thr.Votes)
+		err := rows.Scan(&thr.Id, &thr.Author, &thr.Created, &thr.Forum,  &thr.Message, &nullSlug, &thr.Title, &thr.Votes)
+
+		if nullSlug.Valid {
+			thr.Slug = nullSlug.String
+		} else {
+			thr.Slug = ""
+		}
+
 		if err != nil {
+			fmt.Println(err.Error())
+
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
