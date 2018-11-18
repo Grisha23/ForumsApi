@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS votes (
 	UNIQUE (nickname, thread)
 );
 
-GRANT ALL PRIVILEGES ON ALL TABLEs IN schema public to tpforumsapi;
+GRANT ALL PRIVILEGES ON ALL TABLES IN schema public to tpforumsapi;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO tpforumsapi;
 
 CREATE OR REPLACE FUNCTION check_message() RETURNS TRIGGER AS '
@@ -94,8 +94,55 @@ CREATE TRIGGER thread_create
 BEFORE INSERT ON threads FOR EACH ROW
 EXECUTE PROCEDURE thread_create();
 
-CREATE INDEX ON forums (slug);
-CREATE INDEX ON users (nickname);
-CREATE INDEX ON threads (id);
+
+
+
+
+
+CREATE OR REPLACE FUNCTION vote_update() RETURNS TRIGGER AS'
+BEGIN
+  IF (OLD.voice<>NEW.voice) THEN
+    IF (NEW.voice=-1) THEN
+      UPDATE threads SET votes=votes-2 WHERE id=NEW.thread;
+    ELSE
+      UPDATE threads SET votes=votes+2 WHERE id=NEW.thread;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+'
+LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION vote_create() RETURNS TRIGGER AS'
+BEGIN
+  UPDATE threads SET votes=votes+NEW.voice WHERE id=NEW.thread;
+  RETURN NEW;
+END;
+'
+LANGUAGE plpgsql;
+
+
+
+CREATE TRIGGER vote_create
+AFTER INSERT ON votes FOR EACH ROW
+EXECUTE PROCEDURE vote_create();
+
+CREATE TRIGGER vote_update
+AFTER UPDATE ON votes FOR EACH ROW
+EXECUTE PROCEDURE vote_update();
+
+
+
+
+
+
+
+
+
+
+CREATE INDEX forum_i ON forums (slug);
+CREATE INDEX user_i ON users (nickname);
+CREATE INDEX thtead_i ON threads (id);
 
 
