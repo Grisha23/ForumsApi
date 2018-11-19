@@ -16,12 +16,12 @@ import (
 
 
 const (
-	//DbUser     = "docker"
-	//DbPassword = "docker"
-	//DbName     = "docker"
-	DbUser     = "tpforumsapi"
-	DbPassword = "222"
-	DbName = "forums_func"
+	DbUser     = "docker"
+	DbPassword = "docker"
+	DbName     = "docker"
+	//DbUser     = "tpforumsapi"
+	//DbPassword = "222"
+	//DbName = "forums_func"
 )
 
 var db *sql.DB
@@ -255,14 +255,17 @@ func UserCreate(w http.ResponseWriter, r *http.Request)  {
 	}
 
 	t, _ := db.Begin()
+
+	defer t.Rollback()
+
 	t.Exec("SET LOCAL synchronous_commit TO OFF")
+
 	query := "INSERT INTO users(about, email, fullname, nickname) VALUES ($1,$2,$3,$4) RETURNING *"
 
 	err = t.QueryRow(query, user.About, user.Email, user.FullName, user.NickName).Scan(&user.About,
 		&user.Email, &user.FullName, &user.NickName)
 
 	if err != nil {
-		t.Rollback()
 		errorName := err.(*pq.Error).Code.Name()
 
 		if errorName == "unique_violation"{
@@ -302,13 +305,15 @@ func UserCreate(w http.ResponseWriter, r *http.Request)  {
 
 	}
 
-	t.Commit()
 
 	resp, err := json.Marshal(user)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	t.Commit()
+
 	w.Header().Set("content-type", "application/json")
 
 	w.WriteHeader(http.StatusCreated)
@@ -341,62 +346,61 @@ func ThreadVote(w http.ResponseWriter, r *http.Request)  {
 
 	err = json.Unmarshal(body, &vote)
 
-	thr, err := getThread(slugOrId)
-
-	if err != nil {
-		//errorName := err.(*pq.Error).Code.Name()
-		//if errorName ==
-		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
-		return
-	}
-	//newVote := Vote{}
-	oldVote := models.Vote{}
-	errGetVote := db.QueryRow("SELECT voice FROM votes WHERE nickname=$1 AND thread=$2", vote.Nickname, thr.Id).Scan(&oldVote.Voice)
-
-
-	//var id string
 	//thrId, err := strconv.Atoi(slugOrId)
 	//if err != nil {
 	//	id = slugOrId
 	//} else {
 	//	id = strconv.Itoa(thrId)
 	//}
-	// Прблема: id может быть slug, а может id. В случае slug нужно тащить отдельным запросом id треда.
+
+	//thr, err := getThread(slugOrId)
+	//
+	//if err != nil {
+	//	//errorName := err.(*pq.Error).Code.Name()
+	//	//if errorName ==
+	//	sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
+	//	return
+	//}
+	//oldVote := models.Vote{}
+
+	//errGetVote := db.QueryRow("SELECT voice FROM votes WHERE nickname=$1 AND thread=$2", vote.Nickname, thr.Id).Scan(&oldVote.Voice)
 
 
-
-	_, err = db.Exec("INSERT INTO votes(nickname, voice, thread) VALUES ($1,$2,$3) " +
-		"ON CONFLICT (nickname, thread) DO " +
-		"UPDATE SET voice=$4",
-		vote.Nickname, vote.Voice, thr.Id, vote.Voice)
-
-	//row.Scan(&newVote.Nickname, &newVote.Voice, &newVote.Thread)
+	//var id string
+	thrId, err := strconv.Atoi(slugOrId)
+	//var row *sql.Row
 
 	if err != nil {
-		//fmt.Println(err.Error())
+		_,err = db.Exec("INSERT INTO votes(nickname, voice, thread) VALUES ($1,$2, (SELECT id FROM threads WHERE slug=$3)) " +
+			"ON CONFLICT (nickname, thread) DO " +
+			"UPDATE SET voice=$2",
+			vote.Nickname, vote.Voice, slugOrId)
+	} else {
+		_,err = db.Exec("INSERT INTO votes(nickname, voice, thread) VALUES ($1,$2,$3) " +
+			"ON CONFLICT (nickname, thread) DO " +
+			"UPDATE SET voice=$2",
+			vote.Nickname, vote.Voice, thrId)
+	}
+	// Прблема: id может быть slug, а может id. В случае slug нужно тащить отдельным запросом id треда.
+
+	//newVote := models.Vote{}
+
+
+	//err = row.Scan(&oldVote.Nickname, &oldVote.Voice, &oldVote.Thread)
+
+	if err != nil {
+		fmt.Println(err.Error())
 		if err.(*pq.Error).Code.Name() == "foreign_key_violation" {
 			sendError("Can't find user with id " + slugOrId + "\n", 404, &w)
 			return
 		}
 	}
 
-	if errGetVote != nil {
-		thr.Votes = thr.Votes + vote.Voice
-	} else {
-		if oldVote.Voice != vote.Voice {
-			//_, err = db.Exec("UPDATE votes SET voice=$2 WHERE nickname=$1 AND thread=$3 ", vote.Nickname, vote.Voice, thr.Id)
-			if vote.Voice == -1 {
-				//_, err = db.Exec("UPDATE threads SET votes=votes-2 WHERE id=$1", thr.Id) // Returning * чтобы сэкономить на 1 запросе?
-				thr.Votes = thr.Votes - 2
-			} else {
-				//_, err = db.Exec("UPDATE threads SET votes=votes+2 WHERE id=$1", thr.Id) // Returning * чтобы сэкономить на 1 запросе?
-				thr.Votes = thr.Votes + 2
-			}
-		}
-	}
+	thr, err := getThread(slugOrId)
 
 	if err != nil {
-		fmt.Println(err.Error())
+		//errorName := err.(*pq.Error).Code.Name()
+		//if errorName ==
 		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 		return
 	}
@@ -750,6 +754,8 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 	//} else {
 	//	id = slugOrId
 	//}
+	t, err := db.Begin()
+	_, err = t.Exec("SET LOCAL synchronous_commit = OFF")
 
 	thr, err := getThread(slugOrId)
 
@@ -758,11 +764,12 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	t, err := db.Begin()
-	_, err = t.Exec("SET LOCAL synchronous_commit = OFF")
+
+	defer t.Rollback()
 
 	var firstCreated time.Time
 	var count = 0
+	//var err error
 	for _, p := range posts{
 
 		newPost := models.Post{}
@@ -771,9 +778,10 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 				p.Author, thr.Forum, p.Message, p.Parent, thr.Id)
 			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
 				&newPost.Parent, &newPost.Thread)
+
 			firstCreated = newPost.Created
 		} else {
-			row := t.QueryRow("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5, $6) RETURNING *",
+			row := t.QueryRow("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
 				p.Author, thr.Forum, p.Message, p.Parent, thr.Id, firstCreated)
 			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
 				&newPost.Parent, &newPost.Thread)
@@ -782,7 +790,6 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 
 		if err != nil {
 			errorName := err.(*pq.Error).Code.Name()
-			t.Rollback()
 			if err.Error() == "pq: Parent post exc" {
 				sendError("Parent post was created in another thread \n", 409, &w)
 				return
@@ -834,6 +841,7 @@ func ServiceStatus(w http.ResponseWriter, r *http.Request)  {
 	}
 
 	row := db.QueryRow("SELECT t1.cnt c1, t2.cnt c2, t3.cnt c3, t4.cnt c4 FROM (SELECT count(*) cnt FROM users) t1, (SELECT COUNT(*) cnt FROM forums) t2, (SELECT COUNT(*) cnt FROM posts) t3, (SELECT COUNT(*) cnt FROM threads) t4;")
+//	row := db.QueryRow("SELECT reltuples::bigint AS estimate FROM pg_class WHERE oid='users'::regclass")
 
 	status := models.Status{}
 
@@ -1022,7 +1030,7 @@ func ForumUsers(w http.ResponseWriter, r *http.Request){
 		sendError("Can't find forum with slug " + slug + "\n", 404, &w)
 		return
 	}
-
+	//Исправить на JOIN
 	if !limit && !since && !desc {
 		rows, err = db.Query("SELECT * FROM users WHERE nickname IN (SELECT author FROM threads WHERE forum=$1 GROUP BY author) OR nickname IN (SELECT author FROM posts WHERE forum=$1 GROUP BY author) ORDER BY nickname ASC;", slug)
 	} else if !limit && !since && desc {
@@ -1240,10 +1248,12 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 	var err error
 	var row *sql.Row
 	if thr.Slug == "" {
-		row = db.QueryRow("INSERT INTO threads(author, created, forum, message, title) VALUES ($1, $2, $3, $4, $5) RETURNING *", thr.Author, thr.Created, slug,
+		row = db.QueryRow("INSERT INTO threads(author, created, forum, message, title) VALUES ($1, $2, " +
+			"(SELECT slug FROM forums WHERE slug=$3), $4, $5) RETURNING *", thr.Author, thr.Created, slug,
 			thr.Message, thr.Title)
 	} else {
-		row = db.QueryRow("INSERT INTO threads(author, created, forum, message, title, slug) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *", thr.Author, thr.Created, slug,
+		row = db.QueryRow("INSERT INTO threads(author, created, forum, message, title, slug) VALUES ($1, $2, " +
+			"(SELECT slug FROM forums WHERE slug=$3), $4, $5, $6) RETURNING *", thr.Author, thr.Created, slug,
 			thr.Message, thr.Title, thr.Slug)
 	}
 
@@ -1254,14 +1264,14 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 	if err != nil {
 		errorName := err.(*pq.Error).Code.Name()
 
-		if errorName == "foreign_key_violation"{
+		if errorName == "foreign_key_violation" || errorName == "not_null_violation"{
 			sendError( "Can't find user or forum \n", 404, &w)
 			return
 		}
+
 		if errorName == "unique_violation"{
-			row := db.QueryRow("SELECT * FROM threads WHERE slug=$1", thr.Slug)
-			existThr := models.Thread{}
-			row.Scan(&existThr.Id, &existThr.Author, &existThr.Created, &existThr.Forum, &existThr.Message, &existThr.Slug, &existThr.Title, &existThr.Votes)
+			existThr, _ := getThread(thr.Slug)
+
 			w.Header().Set("content-type", "application/json")
 
 			w.WriteHeader(http.StatusConflict)
@@ -1279,9 +1289,9 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 		newThr.Slug = sqlSlug.String
 	}
 
-	var forumSlug string
-	db.QueryRow("SELECT slug FROM forums WHERE slug=$1", thr.Forum).Scan(&forumSlug) // Неэффективно
-	newThr.Forum = forumSlug
+	//var forumSlug string
+	//db.QueryRow("SELECT slug FROM forums WHERE slug=$1", thr.Forum).Scan(&forumSlug) // Неэффективно
+	//newThr.Forum = forumSlug
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -1310,6 +1320,7 @@ func ForumCreate(w http.ResponseWriter, r *http.Request){
 	body, err := ioutil.ReadAll(r.Body)
 
 	t, _ := db.Begin()
+	defer t.Rollback()
 
 	t.Exec("SET LOCAL synchronous_commit TO OFF")
 
@@ -1334,7 +1345,6 @@ func ForumCreate(w http.ResponseWriter, r *http.Request){
 	err = row.Scan(&forum.Posts, &forum.Slug, &forum.Threads, &forum.Title, &forum.User)
 
 	if err != nil {
-		t.Rollback()
 		errorName := err.(*pq.Error).Code.Name()
 		if errorName == "foreign_key_violation" {
 			sendError( "Can't find user with name " + forum.User + "\n", 404, &w)

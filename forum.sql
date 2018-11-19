@@ -1,10 +1,12 @@
-DROP TABLE IF EXISTS votes CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS forums CASCADE;
-DROP TABLE IF EXISTS posts CASCADE;
-DROP TABLE IF EXISTS threads CASCADE;
+-- DROP TABLE IF EXISTS votes CASCADE;
+-- DROP TABLE IF EXISTS users CASCADE;
+-- DROP TABLE IF EXISTS forums CASCADE;
+-- DROP TABLE IF EXISTS posts CASCADE;
+-- DROP TABLE IF EXISTS threads CASCADE;
 
 CREATE EXTENSION IF NOT EXISTS citext;
+
+SET LOCAL synchronous_commit TO OFF;
 
 CREATE TABLE IF NOT EXISTS users (
 	about CITEXT,
@@ -108,7 +110,7 @@ BEGIN
       UPDATE threads SET votes=votes+2 WHERE id=NEW.thread;
     END IF;
   END IF;
-  RETURN NEW;
+  RETURN OLD;
 END;
 '
 LANGUAGE plpgsql;
@@ -135,14 +137,10 @@ EXECUTE PROCEDURE vote_update();
 
 
 
-
-
-
-
-
-
 CREATE INDEX forum_i ON forums (slug);
 CREATE INDEX user_i ON users (nickname);
-CREATE INDEX thtead_i ON threads (id);
+CREATE INDEX thtead_i ON threads (id, forum, created);
+CREATE INDEX post_i ON posts (id, created);
+CREATE INDEX vote_i ON votes (nickname);
 
 
