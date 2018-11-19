@@ -52,9 +52,6 @@ CREATE TABLE IF NOT EXISTS votes (
 	UNIQUE (nickname, thread)
 );
 
-GRANT ALL PRIVILEGES ON ALL TABLES IN schema public to tpforumsapi;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO tpforumsapi;
-
 CREATE OR REPLACE FUNCTION check_message() RETURNS TRIGGER AS '
 BEGIN
   NEW.isedited:=false;
