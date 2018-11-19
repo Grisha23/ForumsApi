@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ForumsApi/handlers"
+	"github.com/Grisha23/ForumsApi/handlers"
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
@@ -16,7 +16,6 @@ func AccessLogMiddleware (mux *mux.Router,) http.HandlerFunc   {
 
 	})
 }
-
 
 func main(){
 	db, _ := handlers.InitDb()
@@ -44,10 +43,10 @@ func main(){
 	router.HandleFunc(`/api/user/{nickname}/create`, handlers.UserCreate)
 	router.HandleFunc(`/api/user/{nickname}/profile`, handlers.UserProfile)
 
-	siteHandler := AccessLogMiddleware(router)
+	//siteHandler := AccessLogMiddleware(router)
 
 	http.Handle("/", router)
-	http.ListenAndServe(":5000", siteHandler)
+	http.ListenAndServe(":5000", nil)
 	return
 }
 

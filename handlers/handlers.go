@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"ForumsApi/models"
+	"github.com/Grisha23/ForumsApi/models"
 	"database/sql"
 	"encoding/json"
 	"fmt"
