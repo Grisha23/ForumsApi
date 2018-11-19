@@ -141,6 +141,6 @@ CREATE INDEX forum_i ON forums (slug);
 CREATE INDEX user_i ON users (nickname);
 CREATE INDEX thtead_i ON threads (id, forum, created);
 CREATE INDEX post_i ON posts (id, created);
-CREATE INDEX vote_i ON votes (nickname);
+CREATE INDEX vote_i ON votes (nickname, thread);
 
 
