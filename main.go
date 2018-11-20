@@ -1,27 +1,28 @@
 package main
 
 import (
-	"github.com/Grisha23/ForumsApi/handlers"
-	//"ForumsApi/handlers"
+	//"github.com/Grisha23/ForumsApi/handlers"
+	"ForumsApi/handlers"
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
+	"time"
 )
 
 func AccessLogMiddleware (mux *mux.Router,) http.HandlerFunc   {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		begin := time.Now()
 
 		mux.ServeHTTP(w, r)
 
-		fmt.Println("method", r.Method, "; url", r.URL.Path)
+		fmt.Println("method", r.Method, "; url", r.URL.Path,
+			"Time work: ", time.Since(begin))
 
 	})
 }
 
 func main(){
 	db, _ := handlers.InitDb()
-
-	defer db.Close()
 
 	router := mux.NewRouter()
 
@@ -44,10 +45,13 @@ func main(){
 	router.HandleFunc(`/api/user/{nickname}/create`, handlers.UserCreate)
 	router.HandleFunc(`/api/user/{nickname}/profile`, handlers.UserProfile)
 
-	//siteHandler := AccessLogMiddleware(router)
+	siteHandler := AccessLogMiddleware(router)
 
 	http.Handle("/", router)
-	http.ListenAndServe(":5000", nil)
+	http.ListenAndServe(":5000", siteHandler)
+
+	defer db.Close()
+
 	return
 }
 
