@@ -421,7 +421,7 @@ curl -i --header "Content-Type: application/json" --request POST --data '{"nickn
 
 */
 
-func ThreadPosts(w http.ResponseWriter, r *http.Request) { //perf 2,18,37 много
+func ThreadPosts(w http.ResponseWriter, r *http.Request) { //perf 2,18,37 много // flat нормально. Исправлять tree & parent_tree
 	//if r.Method != http.MethodGet {
 	//	return
 	//}
@@ -496,11 +496,13 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) { //perf 2,18,37 мно
 			sortAddition = " order by path[0],path DESC "
 			if since != false {
 				sinceAddition = " where path < (select path from post_tree where id = " + sinceVal + " ) "
+				//sinceAddition = " AND path < pt.path AND pt.id=" + sinceVal + "  "
 			}
 		} else {
 			sortAddition = " order by path[0],path ASC"
 			if since != false {
 				sinceAddition = " where path > (select path from post_tree where id = " + sinceVal + " ) "
+				//sinceAddition = " AND path > pt.path AND pt.id=" + sinceVal + "  "
 			}
 		}
 
@@ -509,7 +511,7 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) { //perf 2,18,37 мно
 		}
 		query := "WITH recursive post_tree(id,path) as(select p.id,array_append('{}'::bigint[], id) as arr_id from posts p " +
 			"where p.parent = 0 and p.thread=$1 union all " +
-			"select p.id, array_append(path, p.id) from posts p join post_tree pt on p.parent = pt.id) " +
+			"select p.id, array_append(path, p.id) from posts p JOIN post_tree pt ON p.parent = pt.id ) " +
 			"select p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread from post_tree pt join " +
 			"posts p on p.id = pt.id " + sinceAddition + " " + sortAddition + " " + limitAddition
 		rows, err = db.Query(query, thr.Id)
@@ -793,6 +795,8 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 		}
 
 
+
+
 		if err != nil {
 			errorName := err.(*pq.Error).Code.Name()
 			if err.Error() == "pq: Parent post exc" {
@@ -809,11 +813,15 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 			return
 		}
 
+		t.Exec("INSERT INTO forum_users(forum,author) VALUES ($1,$2) ON CONFLICT DO NOTHING", thr.Forum, p.Author)
+
 		data = append(data, newPost)
 
 		count++
 
 	}
+
+
 
 	resp, err := json.Marshal(data)
 
@@ -1037,68 +1045,39 @@ func ForumUsers(w http.ResponseWriter, r *http.Request){ // perf(-) 1,2,4,37 о�
 	fmt.Println(limit,since,desc)
 
 
-
-	//Исправить на JOIN
 	if !limit && !since && !desc {
-		//rows, err = db.Query("SELECT * FROM users WHERE nickname IN (SELECT author FROM threads WHERE forum=$1 GROUP BY author) OR nickname IN (SELECT author FROM posts WHERE forum=$1 GROUP BY author) ORDER BY nickname ASC;", slug)
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM users u JOIN (SELECT author FROM threads WHERE forum=$1 UNION ALL SELECT author FROM posts WHERE forum=$1) as t ON u.nickname=t.author ORDER BY nickname ASC"
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM users u LEFT JOIN threads t ON t.author=u.nickname AND t.forum=$1 LEFT JOIN posts p ON (u.nickname=p.author AND p.forum=$1) WHERE t.id IS NOT NULL OR p.id IS NOT NULL ORDER BY nickname ASC"
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM ((SELECT about,email,fullname,nickname FROM users u JOIN threads t ON u.nickname=t.author AND t.forum=$1) UNION ALL (SELECT about,email,fullname,nickname FROM users u JOIN posts p ON u.nickname=p.author AND p.forum=$1)) as res ORDER BY nickname ASC"
-		query := "SELECT DISTINCT about,email,fullname,nickname FROM users JOIN (SELECT author FROM threads WHERE forum=$1 UNION ALL SELECT author FROM threads WHERE forum=$1) as foo ON users.nickname=foo.author ORDER BY nickname ASC;"
+		query := "SELECT about,email,fullname,nickname FROM forum_users f_u JOIN users u ON f_u.author=u.nickname AND f_u.forum=$1 ORDER BY nickname ASC"
 
 		rows, err = db.Query(query, slug)
 	} else if !limit && !since && desc {
-		//rows, err = db.Query("SELECT * FROM users WHERE nickname IN (SELECT author FROM threads WHERE forum=$1 GROUP BY author) OR nickname IN (SELECT author FROM posts WHERE forum=$1 GROUP BY author) ORDER BY nickname DESC;", slug)
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM users u JOIN (SELECT author FROM threads WHERE forum=$1 UNION ALL SELECT author FROM posts WHERE forum=$1) as t ON u.nickname=t.author ORDER BY nickname DESC"
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM ((SELECT about,email,fullname,nickname FROM users u JOIN threads t ON u.nickname=t.author AND t.forum=$1) UNION ALL (SELECT about,email,fullname,nickname FROM users u JOIN posts p ON u.nickname=p.author AND p.forum=$1)) as res ORDER BY nickname DESC "
-		query := "SELECT DISTINCT about,email,fullname,nickname FROM users JOIN (SELECT author FROM threads WHERE forum=$1 UNION ALL SELECT author FROM threads WHERE forum=$1) as foo ON users.nickname=foo.author ORDER BY nickname DESC"
+		query := "SELECT about,email,fullname,nickname FROM forum_users f_u JOIN users u ON f_u.author=u.nickname AND f_u.forum=$1 ORDER BY nickname DESC "
 
 		rows, err = db.Query(query, slug)
 	} else if !limit && since && !desc {
-		//rows, err = db.Query("SELECT * FROM users WHERE nickname IN (SELECT author FROM threads WHERE forum=$1 AND author>$2 GROUP BY author) OR nickname IN (SELECT author FROM posts WHERE forum=$1 AND author>$2 GROUP BY author) AND nickname>$2 ORDER BY nickname ASC;", slug, sinceVal)
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM users u JOIN (SELECT author FROM threads WHERE forum=$1 AND author>$2 UNION ALL SELECT author FROM posts WHERE forum=$1 AND author>$2) as t ON u.nickname=t.author AND u.nickname>$2 ORDER BY nickname ASC"
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM ((SELECT about,email,fullname,nickname FROM users u JOIN threads t ON u.nickname=t.author AND t.forum=$1 AND t.author>$2) UNION ALL (SELECT about,email,fullname,nickname FROM users u JOIN posts p ON u.nickname=p.author AND p.forum=$1 AND p.author>$2)) as res ORDER BY nickname ASC"
-		query := "SELECT DISTINCT about,email,fullname,nickname FROM users JOIN (SELECT author FROM threads WHERE forum=$1 UNION ALL SELECT author FROM threads WHERE forum=$1) as foo ON users.nickname=foo.author WHERE users.nickname>$2 ORDER BY nickname ASC"
+		query := "SELECT about,email,fullname,nickname FROM forum_users f_u JOIN users u ON f_u.author=u.nickname AND f_u.forum=$1 AND u.nickname>$2 ORDER BY nickname ASC"
 
 		rows, err = db.Query(query, slug, sinceVal)
 
 	} else if !limit && since && desc {
-		//
-		// rows, err = db.Query("SELECT * FROM users WHERE nickname IN (SELECT author FROM threads WHERE forum=$1 AND author<$2 GROUP BY author) OR nickname IN (SELECT author FROM posts WHERE forum=$1 AND author<$2 GROUP BY author) AND nickname<$2 ORDER BY nickname DESC;", slug, sinceVal)
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM users u JOIN (SELECT author FROM threads WHERE forum=$1 AND author<$2 UNION ALL SELECT author FROM posts WHERE forum=$1 AND author<$2) as t ON u.nickname=t.author AND u.nickname<$2 ORDER BY nickname DESC"
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM ((SELECT about,email,fullname,nickname FROM users u JOIN threads t ON u.nickname=t.author AND t.forum=$1 AND t.author<$2) UNION ALL (SELECT about,email,fullname,nickname FROM users u JOIN posts p ON u.nickname=p.author AND p.forum=$1 AND p.author<$2)) as res ORDER BY nickname DESC "
-		query := "SELECT DISTINCT about,email,fullname,nickname FROM users JOIN (SELECT author FROM threads WHERE forum=$1 UNION ALL SELECT author FROM posts WHERE forum=$1) as foo ON users.nickname=foo.author WHERE users.nickname<$2 ORDER BY nickname DESC"
-		//
+		query := "SELECT about,email,fullname,nickname FROM forum_users f_u JOIN users u ON f_u.author=u.nickname AND f_u.forum=$1 AND u.nickname<$2 ORDER BY nickname DESC "
 		rows, err = db.Query(query, slug, sinceVal)
 
 	} else if limit && !since && !desc {
-		//rows, err = db.Query("SELECT * FROM users WHERE nickname IN (SELECT author FROM threads WHERE forum=$1 GROUP BY author) OR nickname IN (SELECT author FROM posts WHERE forum=$1 GROUP BY author) ORDER BY nickname ASC LIMIT $2;", slug, limitVal)
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM users u JOIN (SELECT author FROM threads WHERE forum=$1 UNION ALL SELECT author FROM posts WHERE forum=$1) as t ON u.nickname=t.author ORDER BY nickname ASC LIMIT $2"
-
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM ((SELECT about,email,fullname,nickname FROM users u JOIN threads t ON u.nickname=t.author AND t.forum=$1) UNION ALL (SELECT about,email,fullname,nickname FROM users u JOIN posts p ON u.nickname=p.author AND p.forum=$1)) as res ORDER BY nickname ASC LIMIT $2"
-		query := "SELECT DISTINCT about,email,fullname,nickname FROM users JOIN (SELECT author FROM threads WHERE forum=$1 UNION ALL SELECT author FROM posts WHERE forum=$1) as foo ON users.nickname=foo.author ORDER BY nickname ASC LIMIT $2"
+		query := "SELECT about,email,fullname,nickname FROM forum_users f_u JOIN users u ON f_u.author=u.nickname AND f_u.forum=$1 ORDER BY nickname ASC LIMIT $2"
 		rows, err = db.Query(query, slug, limitVal)
 
 	} else if limit && !since && desc {
-		//rows, err = db.Query("SELECT DISTINCT about,email,fullname,nickname FROM users JOIN (SELECT author FROM threads WHERE forum=$1 UNION ALL SELECT author FROM posts WHERE forum=$1) as foo ON users.nickname=foo.author ORDER BY nickname DESC LIMIT $2;", slug, limitVal)
-		//rows, err = db.Query("SELECT * FROM users WHERE nickname IN (SELECT author FROM threads WHERE forum=$1 GROUP BY author) OR nickname IN (SELECT author FROM posts WHERE forum=$1 GROUP BY author) ORDER BY nickname DESC LIMIT $2;", slug, limitVal)
-		query := "SELECT DISTINCT about,email,fullname,nickname FROM users JOIN (SELECT author FROM threads WHERE forum=$1 UNION ALL SELECT author FROM posts WHERE forum=$1) as foo ON users.nickname=foo.author ORDER BY nickname DESC LIMIT $2"
-
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM ((SELECT about,email,fullname,nickname FROM users u JOIN threads t ON u.nickname=t.author AND t.forum=$1) UNION ALL (SELECT about,email,fullname,nickname FROM users u JOIN posts p ON u.nickname=p.author AND p.forum=$1)) as res ORDER BY nickname DESC LIMIT $2"
+		query := "SELECT about,email,fullname,nickname FROM forum_users f_u JOIN users u ON f_u.author=u.nickname AND f_u.forum=$1 ORDER BY nickname DESC LIMIT $2"
 		rows, err = db.Query(query, slug, limitVal)
 
 	} else if limit && since && !desc {//here
-		//rows, err = db.Query("SELECT * FROM users WHERE nickname IN (SELECT author FROM threads WHERE forum=$1 AND author>$2 GROUP BY author) OR nickname IN (SELECT author FROM posts WHERE forum=$1 AND author>$2 GROUP BY author) AND nickname>$2 ORDER BY nickname ASC LIMIT $3;", slug, sinceVal, limitVal)		//query := "SELECT DISTINCT about,email,fullname,nickname FROM users u JOIN (SELECT DISTINCT author FROM threads WHERE forum=$1 AND author>$2 UNION ALL SELECT DISTINCT author FROM posts WHERE forum=$1 AND author>$2) as t ON u.nickname=t.author ORDER BY nickname ASC LIMIT $3"
-		query := "SELECT DISTINCT about,email,fullname,nickname FROM users JOIN (SELECT author FROM threads WHERE forum=$1 AND author>$2 UNION ALL SELECT author FROM posts WHERE forum=$1 AND author>$2) as foo ON users.nickname=foo.author AND users.nickname>$2 ORDER BY nickname ASC LIMIT $3"
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM ((SELECT about,email,fullname,nickname FROM users u JOIN threads t ON u.nickname=t.author AND t.forum=$1 AND t.author>$2) UNION ALL (SELECT about,email,fullname,nickname FROM users u JOIN posts p ON u.nickname=p.author AND p.forum=$1 AND p.author>$2)) as res ORDER BY nickname ASC  LIMIT $3"
+		query := "SELECT about,email,fullname,nickname FROM forum_users f_u JOIN users u ON f_u.author=u.nickname AND f_u.forum=$1 AND u.nickname>$2 ORDER BY nickname ASC LIMIT $3"
 
 		rows, err = db.Query(query, slug, sinceVal, limitVal)
 
 	} else if limit && since && desc {
-		//rows, err = db.Query("SELECT * FROM users WHERE nickname IN (SELECT author FROM threads WHERE forum=$1 AND author<$2 GROUP BY author) OR nickname IN (SELECT author FROM posts WHERE forum=$1 AND author<$2 GROUP BY author) AND nickname<$2 ORDER BY nickname DESC LIMIT $3;", slug, sinceVal, limitVal)
-		query := "SELECT DISTINCT about,email,fullname,nickname FROM users JOIN (SELECT author FROM threads WHERE forum=$1 AND author<$2 UNION ALL SELECT author FROM posts WHERE forum=$1 AND author<$2) as foo ON users.nickname=foo.author AND users.nickname<$2 ORDER BY nickname DESC LIMIT $3"
+		query := "SELECT about,email,fullname,nickname FROM forum_users f_u JOIN users u ON f_u.author=u.nickname AND f_u.forum=$1 AND u.nickname<$2 ORDER BY nickname DESC LIMIT $3"
 
-		//query := "SELECT DISTINCT about,email,fullname,nickname FROM ((SELECT about,email,fullname,nickname FROM users u JOIN threads t ON u.nickname=t.author AND t.forum=$1 AND t.author<$2) UNION ALL (SELECT about,email,fullname,nickname FROM users u JOIN posts p ON u.nickname=p.author AND p.forum=$1 AND p.author<$2)) as res ORDER BY nickname DESC  LIMIT $3"
 		rows, err = db.Query(query, slug, sinceVal, limitVal)
 
 	}
@@ -1296,6 +1275,12 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
+	t,_ := db.Begin()
+
+	defer t.Rollback()
+
+	t.Exec("SET LOCAL synchronous_commit = OFF")
+
 	thr := models.Thread{}
 
 	json.Unmarshal(body, &thr)
@@ -1306,11 +1291,11 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 	var err error
 	var row *sql.Row
 	if thr.Slug == "" {
-		row = db.QueryRow("INSERT INTO threads(author, created, forum, message, title) VALUES ($1, $2, " +
+		row = t.QueryRow("INSERT INTO threads(author, created, forum, message, title) VALUES ($1, $2, " +
 			"(SELECT slug FROM forums WHERE slug=$3), $4, $5) RETURNING *", thr.Author, thr.Created, slug,
 			thr.Message, thr.Title)
 	} else {
-		row = db.QueryRow("INSERT INTO threads(author, created, forum, message, title, slug) VALUES ($1, $2, " +
+		row = t.QueryRow("INSERT INTO threads(author, created, forum, message, title, slug) VALUES ($1, $2, " +
 			"(SELECT slug FROM forums WHERE slug=$3), $4, $5, $6) RETURNING *", thr.Author, thr.Created, slug,
 			thr.Message, thr.Title, thr.Slug)
 	}
@@ -1320,6 +1305,7 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 	err = row.Scan(&newThr.Id, &newThr.Author, &newThr.Created, &newThr.Forum, &newThr.Message, &sqlSlug, &newThr.Title, &newThr.Votes)
 
 	if err != nil {
+		fmt.Println(err.Error())
 		errorName := err.(*pq.Error).Code.Name()
 
 		if errorName == "foreign_key_violation" || errorName == "not_null_violation"{
@@ -1341,6 +1327,14 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
+	_, err = t.Exec("INSERT INTO forum_users(forum,author) VALUES ($1,$2) ON CONFLICT DO NOTHING", slug, thr.Author)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	if !sqlSlug.Valid {
 		newThr.Slug = ""
 	} else {
@@ -1355,6 +1349,8 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	t.Commit()
+
 
 	resp, _:= json.Marshal(newThr)
 	w.Header().Set("content-type", "application/json")

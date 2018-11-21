@@ -52,6 +52,23 @@ CREATE TABLE IF NOT EXISTS votes (
 	UNIQUE (nickname, thread)
 );
 -- --
+CREATE TABLE IF NOT EXISTS forum_users (
+  forum CITEXT REFERENCES forums(slug),
+  author CITEXT REFERENCES users(nickname),
+  UNIQUE (forum,author)
+);
+
+CREATE INDEX IF NOT EXISTS f_users ON forum_users (forum,author);
+
+
+
+
+GRANT ALL PRIVILEGES ON ALL TABLEs IN schema public to tpforumsapi;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO tpforumsapi;
+
+
+
+
 CREATE OR REPLACE FUNCTION check_message() RETURNS TRIGGER AS '
 BEGIN
   NEW.isedited:=false;
@@ -151,19 +168,20 @@ EXECUTE PROCEDURE vote_update();
 -- Делать меньше запросов впринципе. Покрываюий индекс?
 -- Денормализовать данные?
 --
-CREATE INDEX IF NOT EXISTS forum_i ON forums (slug);
+CREATE INDEX IF NOT EXISTS forum_i ON forums (slug); --+
 
-CREATE INDEX IF NOT EXISTS user_i ON users (nickname);
+CREATE INDEX IF NOT EXISTS user_i ON users (nickname); --+
 
-CREATE INDEX IF NOT EXISTS thtead_i ON threads (id);
+CREATE INDEX IF NOT EXISTS thtead_i ON threads (id); --+
 CREATE INDEX IF NOT EXISTS thread_slug ON threads (slug);
 CREATE INDEX IF NOT EXISTS thread_ii ON threads (forum,created);
 CREATE INDEX IF NOT EXISTS thread_iii ON threads (forum,author);
 
-CREATE INDEX IF NOT EXISTS post_i ON posts (id, created);
+CREATE INDEX IF NOT EXISTS post_i ON posts (id, created); --+
 CREATE INDEX IF NOT EXISTS post_ii ON posts (thread, id, created);
 CREATE INDEX IF NOT EXISTS post_iii ON posts (forum, author, created);
+-- CREATE INDEX IF NOT EXISTS post_iiii ON posts (parent, thread);
 
-CREATE INDEX IF NOT EXISTS vote_i ON votes (nickname, thread);
+CREATE INDEX IF NOT EXISTS vote_i ON votes (nickname, thread); --+
 
 
