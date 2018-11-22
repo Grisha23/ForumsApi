@@ -1,8 +1,8 @@
 package main
 
 import (
-	//"github.com/Grisha23/ForumsApi/handlers"
-	"ForumsApi/handlers"
+	"github.com/Grisha23/ForumsApi/handlers"
+	//"ForumsApi/handlers"
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
@@ -12,23 +12,26 @@ func AccessLogMiddleware (mux *mux.Router,) http.HandlerFunc   {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		begin := time.Now()
 
-		sortVal := r.URL.Query().Get("sort")
-		if sortVal != "" {
-			fmt.Println("RUN method ", r.Method, " Sort: ", sortVal, "; url", r.URL.Path)
-		}
-
 		mux.ServeHTTP(w, r)
 
+		sortVal := r.URL.Query().Get("sort")
 		if sortVal != "" {
-			fmt.Println("END method ", r.Method, " Sort: ", sortVal, "; url", r.URL.Path,
+			fmt.Println("method ", r.Method, "; url", r.URL.Path,  " Sort: ", sortVal,
 				"Time work: ", time.Since(begin))
 		} else {
-			fmt.Println("END method ", r.Method, "; url", r.URL.Path,
+			fmt.Println("method ", r.Method, "; url", r.URL.Path,
 				"Time work: ", time.Since(begin))
+
 		}
 
-		//fmt.Println("method ", r.Method, "; url", r.URL.Path,
+		//if sortVal != "" {
+		//	fmt.Println("END method ", r.Method, " Sort: ", sortVal, "; url", r.URL.Path,
 		//		"Time work: ", time.Since(begin))
+		//} else {
+		//	fmt.Println("END method ", r.Method, "; url", r.URL.Path,
+		//		"Time work: ", time.Since(begin))
+		//}
+
 
 
 	})
@@ -58,10 +61,10 @@ func main(){
 	router.HandleFunc(`/api/user/{nickname}/create`, handlers.UserCreate)
 	router.HandleFunc(`/api/user/{nickname}/profile`, handlers.UserProfile)  // + быстро
 
-	siteHandler := AccessLogMiddleware(router)
+	//siteHandler := AccessLogMiddleware(router)
 
 	http.Handle("/", router)
-	http.ListenAndServe(":5000", siteHandler)
+	http.ListenAndServe(":5000", nil)
 
 	defer db.Close()
 

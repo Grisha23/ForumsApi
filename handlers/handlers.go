@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	//"github.com/Grisha23/ForumsApi/models"
-	"ForumsApi/models"
+	"github.com/Grisha23/ForumsApi/models"
+	//"ForumsApi/models"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -17,13 +17,13 @@ import (
 
 
 const (
-	//DbUser     = "docker"
-	//DbPassword = "docker"
-	//DbName     = "docker"
-	DbUser     = "tpforumsapi"
-	DbPassword = "222"
-	DbName = "forums_func"
-	//DbName = "forums"
+	DbUser     = "docker"
+	DbPassword = "docker"
+	DbName     = "docker"
+//	DbUser     = "tpforumsapi"
+//	DbPassword = "222"
+//	DbName = "forums_func"
+//	DbName = "forums"
 )
 
 var db *sql.DB
@@ -40,14 +40,14 @@ func InitDb() (*sql.DB, error) {
 	if err = db.Ping(); err != nil {
 		panic(err)
 	}
-
+	//
 	init, err := ioutil.ReadFile("./forum.sql")
 	_, err = db.Exec(string(init))
 
 	if err != nil {
 		panic(err)
 	}
-
+	
 	fmt.Println("You connected to your database.")
 
 	return db, nil
@@ -122,34 +122,19 @@ func UserProfile(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	//aboutAdditional := ""
-	//fullnameAdditional := ""
-	//emailAdditional := ""
 
 	about := false
 	fullname := false
 	email := false
 
-	//separator := ""
-
 	if userUpdate.About != ""{
 		about = true
-		//aboutAdditional = "about='"+userUpdate.About+"'"
 	}
 	if userUpdate.FullName != ""{
 		fullname = true
-		//if about {
-		//	separator = ","
-		//}
-		//fullnameAdditional = separator + "fullname='"+userUpdate.FullName+"'"
-		//separator = ""
 	}
 	if userUpdate.Email != ""{
 		email = true
-		//if about || fullname {
-		//	separator = ","
-		//}
-		//emailAdditional = separator+"email='"+userUpdate.Email+"'"
 	}
 
 	if !email && !fullname && !about {
@@ -168,10 +153,6 @@ func UserProfile(w http.ResponseWriter, r *http.Request)  {
 	}
 	var query string
 	var row *sql.Row
-	//query := "UPDATE users SET " + aboutAdditional + fullnameAdditional + emailAdditional + " WHERE nickname=$1 RETURNING " +
-	//	"about,email,fullname,nickname"
-	//
-	//row := db.QueryRow(query,nickname)
 
 	if about && fullname && email {
 		query = "UPDATE users SET about=$1, fullname=$2, email=$3 WHERE nickname=$4 RETURNING about,email,fullname,nickname"
@@ -256,11 +237,23 @@ func UserCreate(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	t, _ := db.Begin()
+	t,err := db.Begin()
+
+	if err != nil {
+		fmt.Println("db.begin ", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	defer t.Rollback()
 
-	t.Exec("SET LOCAL synchronous_commit TO OFF")
+	_, err = t.Exec("SET LOCAL synchronous_commit TO OFF")
+
+	if err != nil {
+		fmt.Println("set local begin ", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	query := "INSERT INTO users(about, email, fullname, nickname) VALUES ($1,$2,$3,$4) RETURNING *"
 
@@ -349,29 +342,7 @@ func ThreadVote(w http.ResponseWriter, r *http.Request)  {
 
 	err = json.Unmarshal(body, &vote)
 
-	//thrId, err := strconv.Atoi(slugOrId)
-	//if err != nil {
-	//	id = slugOrId
-	//} else {
-	//	id = strconv.Itoa(thrId)
-	//}
-
-	//thr, err := getThread(slugOrId)
-	//
-	//if err != nil {
-	//	//errorName := err.(*pq.Error).Code.Name()
-	//	//if errorName ==
-	//	sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
-	//	return
-	//}
-	//oldVote := models.Vote{}
-
-	//errGetVote := db.QueryRow("SELECT voice FROM votes WHERE nickname=$1 AND thread=$2", vote.Nickname, thr.Id).Scan(&oldVote.Voice)
-
-
-	//var id string
 	thrId, err := strconv.Atoi(slugOrId)
-	//var row *sql.Row
 
 	if err != nil {
 		_,err = db.Exec("INSERT INTO votes(nickname, voice, thread) VALUES ($1,$2, (SELECT id FROM threads WHERE slug=$3)) " +
@@ -384,12 +355,6 @@ func ThreadVote(w http.ResponseWriter, r *http.Request)  {
 			"UPDATE SET voice=$2",
 			vote.Nickname, vote.Voice, thrId)
 	}
-	// Прблема: id может быть slug, а может id. В случае slug нужно тащить отдельным запросом id треда.
-
-	//newVote := models.Vote{}
-
-
-	//err = row.Scan(&oldVote.Nickname, &oldVote.Voice, &oldVote.Thread)
 
 	if err != nil {
 		fmt.Println(err.Error())
@@ -402,8 +367,6 @@ func ThreadVote(w http.ResponseWriter, r *http.Request)  {
 	thr, err := getThread(slugOrId)
 
 	if err != nil {
-		//errorName := err.(*pq.Error).Code.Name()
-		//if errorName ==
 		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 		return
 	}
@@ -420,12 +383,7 @@ func ThreadVote(w http.ResponseWriter, r *http.Request)  {
 curl -i --header "Content-Type: application/json" --request POST --data '{"nickname": "Grisha23", "voice": -1}' http://127.0.0.1:8080/thread/19/vote
 
 */
-
-func ThreadPosts(w http.ResponseWriter, r *http.Request) { //perf 2,18,37 много // flat нормально. Исправлять tree & parent_tree
-	//if r.Method != http.MethodGet {
-	//	return
-	//}
-
+func ThreadPosts(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	slugOrId := vars["slug_or_id"]
 
@@ -493,27 +451,30 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) { //perf 2,18,37 мно
 		sortAddition := ""
 		limitAddition := ""
 		if desc == true {
-			sortAddition = " order by path[0],path DESC "
+			sortAddition = " ORDER BY id_array[0], id_array DESC "
 			if since != false {
-				sinceAddition = " where path < (select path from post_tree where id = " + sinceVal + " ) "
-				//sinceAddition = " AND path < pt.path AND pt.id=" + sinceVal + "  "
+				sinceAddition = " WHERE id_array < (SELECT id_array FROM post_t WHERE id = " + sinceVal + " ) "
 			}
 		} else {
-			sortAddition = " order by path[0],path ASC"
+			sortAddition = " ORDER BY id_array[0],id_array "
 			if since != false {
-				sinceAddition = " where path > (select path from post_tree where id = " + sinceVal + " ) "
-				//sinceAddition = " AND path > pt.path AND pt.id=" + sinceVal + "  "
+				sinceAddition = " WHERE id_array > (SELECT id_array FROM post_t WHERE id = " + sinceVal + " ) "
 			}
 		}
 
 		if limit != false {
-			limitAddition = "limit " + limitVal
+			limitAddition = "LIMIT " + limitVal
 		}
-		query := "WITH recursive post_tree(id,path) as(select p.id,array_append('{}'::bigint[], id) as arr_id from posts p " +
-			"where p.parent = 0 and p.thread=$1 union all " +
-			"select p.id, array_append(path, p.id) from posts p JOIN post_tree pt ON p.parent = pt.id ) " +
-			"select p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread from post_tree pt join " +
-			"posts p on p.id = pt.id " + sinceAddition + " " + sortAddition + " " + limitAddition
+		query := "WITH RECURSIVE post_t(id,id_array,author,created,forum,isedited,message,parent,thread) AS " +
+			"(SELECT p.id,array_append('{}'::bigint[], id) AS id_arr, p.author,p.created,p.forum,p.isedited,p.message,p.parent,p.thread FROM posts p " +
+			"WHERE p.parent = 0 AND p.thread=$1 " +
+
+			"UNION ALL " +
+
+			"SELECT p.id, array_append(id_array, p.id), p.author,p.created,p.forum,p.isedited,p.message,p.parent,p.thread " +
+			"FROM posts p " +
+			"JOIN post_t pt ON p.parent = pt.id) " +
+			"SELECT p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread FROM post_t p " + sinceAddition + " " + sortAddition + " " + limitAddition
 		rows, err = db.Query(query, thr.Id)
 	} else if sortVal == "parent_tree" {
 		descflag := ""
@@ -522,34 +483,39 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) { //perf 2,18,37 мно
 		limitAddition := ""
 		if desc == true {
 			descflag = " desc "
-			sortAddition = "order by path[1] DESC,path"
+			sortAddition = "ORDER BY id_array[1] DESC, id_array "
 			if since != false {
-				sinceAddition = " where path[1] < (select path[1] from post_tree where id = " + sinceVal + " ) "
+				sinceAddition = " WHERE id_array[1] < (SELECT id_array[1] FROM post_parent_tree WHERE id = " + sinceVal + " ) "
 			}
 		} else {
-			descflag = " asc "
-			sortAddition = " order by path[1] ,path ASC"
+			descflag = " ASC "
+			sortAddition = " ORDER BY id_array[1], id_array ASC"
 			if since != false {
-				sinceAddition = " where path[1] > (select path[1] from post_tree where id = " + sinceVal + " ) "
+				sinceAddition = " WHERE id_array[1] > (SELECT id_array[1] FROM post_parent_tree WHERE id = " + sinceVal + " ) "
 			}
 		}
 
 		if limit != false {
-			limitAddition = " where r <= " + limitVal
+			limitAddition = " WHERE temp <= " + limitVal
 		}
 
-		query :="select p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread from (with recursive post_tree(id,path) as( "+
-			"select p.id,array_append('{}'::bigint[], p.id) as arr_id "+
-			"from posts p "+
-			"where p.parent = 0 and p.thread = $1 "+
+		query :="SELECT author,created,forum,id,isedited,message,parent,thread from (" +
+			"WITH RECURSIVE post_parent_tree(id,id_array,author,created,forum,isedited,message,parent,thread) AS( "+
+			" SELECT p.id, array_append('{}'::bigint[], p.id) as id_arr, p.author, p.created, p.forum, p.isedited, p.message, p.parent, p.thread  "+
+			" FROM posts p "+
+			" WHERE p.parent = 0 AND p.thread = $1 " +
 
-			"union all "+
+			" UNION ALL "+
 
-			"select p.id, array_append(path, p.id) from posts p "+
-			"join post_tree pt on p.parent = pt.id "+
-			") "+
-			"select post_tree.id as id,path, dense_rank() over (order by path[1] " + descflag + " ) as " +
-			"r from post_tree " + sinceAddition + " ) as pt join posts p on p.id = pt.id " + limitAddition + " " + sortAddition + ";"
+			" SELECT p.id, array_append(id_array, p.id), p.author, p.created, p.forum, p.isedited, p.message, p.parent, p.thread " +
+			" FROM posts p "+
+			" JOIN post_parent_tree tree " +
+			" ON p.parent = tree.id "+
+			" ) "+
+			" SELECT id_array, post_parent_tree.id AS id, author, created, forum, isedited, message, parent, thread, " +
+			" dense_rank() over (ORDER BY id_array[1] " + descflag + " ) AS temp " +
+			" FROM post_parent_tree " + sinceAddition + " ) AS tree " + limitAddition + " " + sortAddition
+
 		rows, err = db.Query(query, thr.Id)
 	}
 
@@ -559,6 +525,7 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) { //perf 2,18,37 мно
 		return
 	}
 
+	defer rows.Close()
 	posts := make([]models.Post, 0)
 	var i = 0
 	for rows.Next(){
@@ -572,7 +539,6 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) { //perf 2,18,37 мно
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		//err = arr.Scan(&post.Childs)
 		if err != nil {
 			fmt.Println(err.Error())
 
@@ -595,7 +561,7 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) { //perf 2,18,37 мно
 	return
 }
 
-func ThreadDetails(w http.ResponseWriter, r *http.Request){ //perf(+) 1,2 s несколько раз выз.
+func ThreadDetails(w http.ResponseWriter, r *http.Request){
 	vars := mux.Vars(r)
 	slugOrId := vars["slug_or_id"]
 
@@ -719,7 +685,6 @@ func getThread(slug string) (*models.Thread, error) {
 	}
 
 	if err != nil {
-		//fmt.Println("Error: ", err.Error())
 		return nil, err
 	}
 
@@ -754,15 +719,21 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 
 	data := make([]models.Post,0)
 
-	//thrId, err := strconv.Atoi(slugOrId)
-	//var id string
-	//if err != nil {
-	//	id = strconv.Itoa(thrId)
-	//} else {
-	//	id = slugOrId
-	//}
 	t, err := db.Begin()
-	_, err = t.Exec("SET LOCAL synchronous_commit = OFF")
+
+	if err != nil {
+		fmt.Println("db.begin ", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	_, err = t.Exec("SET LOCAL synchronous_commit TO OFF")
+
+	if err != nil {
+		fmt.Println("set local ", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	thr, err := getThread(slugOrId)
 
@@ -813,7 +784,11 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 			return
 		}
 
-		t.Exec("INSERT INTO forum_users(forum,author) VALUES ($1,$2) ON CONFLICT DO NOTHING", thr.Forum, p.Author)
+		_,err := t.Exec("INSERT INTO forum_users(forum,author) VALUES ($1,$2) ON CONFLICT DO NOTHING", thr.Forum, p.Author)
+
+		if err != nil {
+			fmt.Println("postCreate insert forum_users ", err.Error())
+		}
 
 		data = append(data, newPost)
 
@@ -852,7 +827,6 @@ func ServiceStatus(w http.ResponseWriter, r *http.Request)  {
 	}
 
 	row := db.QueryRow("SELECT t1.cnt c1, t2.cnt c2, t3.cnt c3, t4.cnt c4 FROM (SELECT count(*) cnt FROM users) t1, (SELECT COUNT(*) cnt FROM forums) t2, (SELECT COUNT(*) cnt FROM posts) t3, (SELECT COUNT(*) cnt FROM threads) t4")
-//	row := db.QueryRow("SELECT reltuples::bigint AS estimate FROM pg_class WHERE oid='users'::regclass")
 
 	status := models.Status{}
 
@@ -1005,7 +979,7 @@ curl -i --header "Content-Type: application/json" --request POST --data '{"messa
 
 */
 
-func ForumUsers(w http.ResponseWriter, r *http.Request){ // perf(-) 1,2,4,37 очень много
+func ForumUsers(w http.ResponseWriter, r *http.Request){
 	if r.Method != http.MethodGet{
 		return
 	}
@@ -1041,8 +1015,6 @@ func ForumUsers(w http.ResponseWriter, r *http.Request){ // perf(-) 1,2,4,37 о�
 		sendError("Can't find forum with slug " + slug + "\n", 404, &w)
 		return
 	}
-
-	fmt.Println(limit,since,desc)
 
 
 	if !limit && !since && !desc {
@@ -1082,7 +1054,6 @@ func ForumUsers(w http.ResponseWriter, r *http.Request){ // perf(-) 1,2,4,37 о�
 
 	}
 
-
 	if err != nil {
 		fmt.Println(err.Error())
 		sendError( "Can't find forum with slug " + slug + "\n", 404, &w)
@@ -1121,7 +1092,7 @@ curl -i --header "Content-Type: application/json" --request GET http://127.0.0.1
 
 */
 
-func ForumThreads(w http.ResponseWriter, r *http.Request){ // perf(+): 1,2,5 s  много раз вызывается
+func ForumThreads(w http.ResponseWriter, r *http.Request){
 	if r.Method != http.MethodGet {
 		return
 	}
@@ -1155,8 +1126,6 @@ func ForumThreads(w http.ResponseWriter, r *http.Request){ // perf(+): 1,2,5 s  
 	var rows *sql.Rows
 
 	var err error
-
-	//query := " ...EXISTS SELECT 1 FROM forums WHERE slug=$1..."
 
 	if limit && !since && !desc {
 		rows, err = db.Query("SELECT * FROM threads WHERE forum = $1 ORDER BY created LIMIT $2;", slug, limitVal)
@@ -1275,11 +1244,26 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	t,_ := db.Begin()
+	var err error
+
+
+	t, err := db.Begin()
+
+	if err != nil {
+		fmt.Println("db.begin ", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	defer t.Rollback()
 
-	t.Exec("SET LOCAL synchronous_commit = OFF")
+	_, err = t.Exec("SET LOCAL synchronous_commit = OFF")
+
+	if err != nil {
+		fmt.Println("db.begin ", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	thr := models.Thread{}
 
@@ -1288,7 +1272,6 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 	params := mux.Vars(r)
 	slug := params["slug"]
 
-	var err error
 	var row *sql.Row
 	if thr.Slug == "" {
 		row = t.QueryRow("INSERT INTO threads(author, created, forum, message, title) VALUES ($1, $2, " +
@@ -1341,10 +1324,6 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 		newThr.Slug = sqlSlug.String
 	}
 
-	//var forumSlug string
-	//db.QueryRow("SELECT slug FROM forums WHERE slug=$1", thr.Forum).Scan(&forumSlug) // Неэффективно
-	//newThr.Forum = forumSlug
-
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -1374,12 +1353,20 @@ func ForumCreate(w http.ResponseWriter, r *http.Request){
 	body, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 
-	t, _ := db.Begin()
-	defer t.Rollback()
-
-	t.Exec("SET LOCAL synchronous_commit TO OFF")
+	t, err := db.Begin()
 
 	if err != nil {
+		fmt.Println("db.begin ", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	defer t.Rollback()
+
+	_,err = t.Exec("SET LOCAL synchronous_commit TO OFF")
+
+	if err != nil {
+		fmt.Println("set local ", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
