@@ -20,9 +20,9 @@ const (
 	DbUser     = "docker"
 	DbPassword = "docker"
 	DbName     = "docker"
-//	DbUser     = "tpforumsapi"
-//	DbPassword = "222"
-//	DbName = "forums_func"
+	//DbUser     = "tpforumsapi"
+	//DbPassword = "222"
+	//DbName = "forums_func"
 //	DbName = "forums"
 )
 
@@ -40,7 +40,7 @@ func InitDb() (*sql.DB, error) {
 	if err = db.Ping(); err != nil {
 		panic(err)
 	}
-	//
+
 	init, err := ioutil.ReadFile("./forum.sql")
 	_, err = db.Exec(string(init))
 
@@ -853,7 +853,7 @@ func ServiceClear(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	db.Exec("TRUNCATE TABLE votes, users, posts, threads, forums")
+	db.Exec("TRUNCATE TABLE votes, users, posts, threads, forums, forum_users")
 
 	w.WriteHeader(http.StatusOK)
 
