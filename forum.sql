@@ -122,9 +122,9 @@ EXECUTE PROCEDURE post_create();
 
 
 CREATE INDEX IF NOT EXISTS post_i_cr ON posts (id, created); --+
-CREATE INDEX IF NOT EXISTS post_thr_i_cr ON posts (thread, id, created);
-CREATE INDEX IF NOT EXISTS post_frm_athr_cr ON posts (forum, author, created);
-CREATE INDEX IF NOT EXISTS post_prnt_thr ON posts (parent, thread);
+CREATE INDEX IF NOT EXISTS post_thr_i_cr ON posts (thread, id, created); --+
+--CREATE INDEX IF NOT EXISTS post_frm_athr_cr ON posts (forum, author, created);
+CREATE INDEX IF NOT EXISTS post_prnt_thr ON posts (parent, thread); -- +
 -----------------------------------------------
 
 
@@ -172,7 +172,7 @@ EXECUTE PROCEDURE vote_update();
 
 
 
-CREATE INDEX IF NOT EXISTS vote_nick_thr ON votes (nickname, thread); --+
+--CREATE INDEX IF NOT EXISTS vote_nick_thr ON votes (nickname, thread); --+
 
 -----------------------------------------------
 
@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS forum_users (
   UNIQUE (forum,author)
 );
 
-CREATE INDEX IF NOT EXISTS frm_users ON forum_users (forum,author);
+CREATE INDEX IF NOT EXISTS frm_users ON forum_users (forum, author);
 -----------------------------------------------
 
 

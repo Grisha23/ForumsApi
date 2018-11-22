@@ -20,9 +20,9 @@ const (
 	DbUser     = "docker"
 	DbPassword = "docker"
 	DbName     = "docker"
-	//DbUser     = "tpforumsapi"
-	//DbPassword = "222"
-	//DbName = "forums_func"
+//	DbUser     = "tpforumsapi"
+//	DbPassword = "222"
+//	DbName = "forums_func"
 //	DbName = "forums"
 )
 
