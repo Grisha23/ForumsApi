@@ -40,7 +40,7 @@ func InitDb() (*sql.DB, error) {
 	if err = db.Ping(); err != nil {
 		panic(err)
 	}
-
+	//
 	init, err := ioutil.ReadFile("./forum.sql")
 	_, err = db.Exec(string(init))
 
@@ -180,7 +180,6 @@ func UserProfile(w http.ResponseWriter, r *http.Request)  {
 	err = row.Scan(&userUpdate.About, &userUpdate.Email, &userUpdate.FullName, &userUpdate.NickName)
 
 	if err != nil {
-		fmt.Println(err.Error())
 		if err == sql.ErrNoRows {
 			sendError("Can't find prifile with id " + nickname + "\n", 404, &w)
 			return
@@ -357,7 +356,6 @@ func ThreadVote(w http.ResponseWriter, r *http.Request)  {
 	}
 
 	if err != nil {
-		fmt.Println(err.Error())
 		if err.(*pq.Error).Code.Name() == "foreign_key_violation" {
 			sendError("Can't find user with id " + slugOrId + "\n", 404, &w)
 			return
@@ -520,7 +518,6 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		fmt.Println(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -534,14 +531,11 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) {
 
 		err = rows.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
 		if err != nil {
-			fmt.Println(err.Error())
 
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if err != nil {
-			fmt.Println(err.Error())
-
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -1055,7 +1049,6 @@ func ForumUsers(w http.ResponseWriter, r *http.Request){
 	}
 
 	if err != nil {
-		fmt.Println(err.Error())
 		sendError( "Can't find forum with slug " + slug + "\n", 404, &w)
 		return
 	}
@@ -1068,7 +1061,6 @@ func ForumUsers(w http.ResponseWriter, r *http.Request){
 		err := rows.Scan(&usr.About, &usr.Email, &usr.FullName, &usr.NickName)
 
 		if err != nil {
-			fmt.Println(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -1148,7 +1140,6 @@ func ForumThreads(w http.ResponseWriter, r *http.Request){
 	}
 
 	if err != nil {
-		fmt.Println(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -1166,7 +1157,6 @@ func ForumThreads(w http.ResponseWriter, r *http.Request){
 		}
 
 		if err != nil {
-			fmt.Println(err.Error())
 
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -1288,7 +1278,6 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 	err = row.Scan(&newThr.Id, &newThr.Author, &newThr.Created, &newThr.Forum, &newThr.Message, &sqlSlug, &newThr.Title, &newThr.Votes)
 
 	if err != nil {
-		fmt.Println(err.Error())
 		errorName := err.(*pq.Error).Code.Name()
 
 		if errorName == "foreign_key_violation" || errorName == "not_null_violation"{
@@ -1313,7 +1302,6 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 	_, err = t.Exec("INSERT INTO forum_users(forum,author) VALUES ($1,$2) ON CONFLICT DO NOTHING", slug, thr.Author)
 
 	if err != nil {
-		fmt.Println(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
