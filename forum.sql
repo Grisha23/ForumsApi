@@ -111,6 +111,26 @@ CREATE OR REPLACE FUNCTION post_create() RETURNS TRIGGER AS '
 LANGUAGE plpgsql;
 
 
+-- CREATE OR REPLACE FUNCTION post_create() RETURNS TRIGGER AS'
+--   BEGIN
+--     IF NEW.parent<>0 AND NOT EXISTS (SELECT id FROM posts WHERE id=NEW.parent AND thread=NEW.thread) THEN
+--       RAISE ''Parent post exc'';
+--     END IF;
+--     RETURN NEW;
+--   END;
+-- '
+-- LANGUAGE plpgsql;
+--
+--
+-- CREATE OR REPLACE FUNCTION post_create_after() RETURNS TRIGGER AS'
+--   BEGIN
+--     INSERT INTO forum_users(forum,author) VALUES (NEW.forum, NEW.author) ON CONFLICT DO NOTHING;
+--     UPDATE forums SET posts=posts+1 WHERE slug=NEW.forum;
+--     RETURN NEW;
+--   END;
+-- '
+-- LANGUAGE plpgsql;
+
 
 CREATE TRIGGER change_message
 BEFORE UPDATE ON posts FOR EACH ROW WHEN (new.message=old.message)
