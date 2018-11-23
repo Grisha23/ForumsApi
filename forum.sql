@@ -86,7 +86,8 @@ CREATE TABLE IF NOT EXISTS posts (
 	isedited BOOLEAN DEFAULT FALSE,
 	message text NOT NULL,
 	parent BIGINT DEFAULT 0,
-	thread INTEGER NOT NULL REFERENCES threads (id)
+	thread INTEGER NOT NULL REFERENCES threads (id),
+	id_array BIGINT ARRAY DEFAULT '{}'
 );
 
 
@@ -104,6 +105,7 @@ CREATE OR REPLACE FUNCTION post_create() RETURNS TRIGGER AS '
     IF NEW.parent<>0 AND NOT EXISTS (SELECT id FROM posts WHERE id=NEW.parent AND thread=NEW.thread) THEN
       RAISE ''Parent post exc'';
     END IF;
+    NEW.id_array=array_append((SELECT id_array FROM posts WHERE id=NEW.parent), NEW.id);
     UPDATE forums SET posts=posts+1 WHERE slug=NEW.forum;
     RETURN NEW;
   END;
@@ -130,6 +132,8 @@ LANGUAGE plpgsql;
 --   END;
 -- '
 -- LANGUAGE plpgsql;
+--
+--
 
 
 CREATE TRIGGER change_message
@@ -139,12 +143,13 @@ EXECUTE PROCEDURE check_message();
 CREATE TRIGGER post_create
 BEFORE INSERT ON posts FOR EACH ROW
 EXECUTE PROCEDURE post_create();
-
+--
 
 CREATE INDEX IF NOT EXISTS post_i_cr ON posts (id, created); --+
 CREATE INDEX IF NOT EXISTS post_thr_i_cr ON posts (thread, id, created); --+
 --CREATE INDEX IF NOT EXISTS post_frm_athr_cr ON posts (forum, author, created);
 CREATE INDEX IF NOT EXISTS post_prnt_thr ON posts (parent, thread); -- +
+CREATE INDEX IF NOT EXISTS post_id_array ON posts (thread, (id_array[0]), id_array); -- +
 -----------------------------------------------
 
 

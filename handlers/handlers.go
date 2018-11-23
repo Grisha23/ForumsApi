@@ -22,7 +22,7 @@ const (
 	DbName     = "docker"
 	//DbUser     = "tpforumsapi"
 	//DbPassword = "222"
-	////DbName = "forums_func"
+	//DbName = "forums_func"
 	//DbName = "forums"
 )
 
@@ -47,7 +47,7 @@ func InitDb() (*sql.DB, error) {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	fmt.Println("You connected to your database.")
 
 	return db, nil
@@ -450,11 +450,11 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) {
 
 			if since {
 
-				rows, err = db.Query("SELECT * FROM posts WHERE thread = $1 AND id < $3 ORDER BY created DESC, id DESC LIMIT $2", thr.Id, limitVal, sinceVal)
+				rows, err = db.Query("SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE thread = $1 AND id < $3 ORDER BY created DESC, id DESC LIMIT $2", thr.Id, limitVal, sinceVal)
 
 			} else {
 
-				rows, err = db.Query("SELECT * FROM posts WHERE thread = $1 ORDER BY id DESC LIMIT $2", thr.Id, limitVal)
+				rows, err = db.Query("SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE thread = $1 ORDER BY id DESC LIMIT $2", thr.Id, limitVal)
 
 			}
 
@@ -462,10 +462,10 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) {
 
 			if since {
 
-				rows, err = db.Query("SELECT * FROM posts WHERE thread = $1 AND id > $3 ORDER BY id ASC LIMIT $2", thr.Id, limitVal, sinceVal)
+				rows, err = db.Query("SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE thread = $1 AND id > $3 ORDER BY id ASC LIMIT $2", thr.Id, limitVal, sinceVal)
 
 			} else {
-				query := "SELECT * FROM posts WHERE thread = $1 ORDER BY id ASC LIMIT " + limitVal
+				query := "SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE thread = $1 ORDER BY id ASC LIMIT " + limitVal
 				rows, err = db.Query(query, thr.Id)
 
 			}
@@ -478,28 +478,29 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) {
 		if desc == true {
 			sortAddition = " ORDER BY id_array[0], id_array DESC "
 			if since != false {
-				sinceAddition = " WHERE id_array < (SELECT id_array FROM post_t WHERE id = " + sinceVal + " ) "
+				sinceAddition = " AND id_array < (SELECT id_array FROM posts WHERE id = " + sinceVal + " ) "
 			}
 		} else {
 			sortAddition = " ORDER BY id_array[0],id_array "
 			if since != false {
-				sinceAddition = " WHERE id_array > (SELECT id_array FROM post_t WHERE id = " + sinceVal + " ) "
+				sinceAddition = " AND id_array > (SELECT id_array FROM posts WHERE id = " + sinceVal + " ) "
 			}
 		}
 
 		if limit != false {
 			limitAddition = "LIMIT " + limitVal
 		}
-		query := "WITH RECURSIVE post_t(id,id_array,author,created,forum,isedited,message,parent,thread) AS " +
-			"(SELECT p.id,array_append('{}'::bigint[], id) AS id_arr, p.author,p.created,p.forum,p.isedited,p.message,p.parent,p.thread FROM posts p " +
-			"WHERE p.parent = 0 AND p.thread=$1 " +
-
-			"UNION ALL " +
-
-			"SELECT p.id, array_append(id_array, p.id), p.author,p.created,p.forum,p.isedited,p.message,p.parent,p.thread " +
-			"FROM posts p " +
-			"JOIN post_t pt ON p.parent = pt.id) " +
-			"SELECT p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread FROM post_t p " + sinceAddition + " " + sortAddition + " " + limitAddition
+		query := "SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE thread=$1 " + sinceAddition + " " + sortAddition + " " + limitAddition
+		//query := "WITH RECURSIVE post_t(id,id_array,author,created,forum,isedited,message,parent,thread) AS " +
+		//	"(SELECT p.id, p.id_array as parents,p.author,p.created,p.forum,p.isedited,p.message,p.parent,p.thread FROM posts p " +
+		//	"WHERE p.parent = 0 AND p.thread=$1 " +
+		//
+		//	"UNION ALL " +
+		//
+		//	"SELECT p.id, p.id_array,p.author,p.created,p.forum,p.isedited,p.message,p.parent,p.thread " +
+		//	"FROM posts p " +
+		//	"JOIN post_t pt ON p.parent = pt.id) " +
+		//	"SELECT p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread FROM post_t p " + sinceAddition + " " + sortAddition + " " + limitAddition
 		rows, err = db.Query(query, thr.Id)
 	} else if sortVal == "parent_tree" {
 		descflag := ""
@@ -510,13 +511,13 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) {
 			descflag = " desc "
 			sortAddition = "ORDER BY id_array[1] DESC, id_array "
 			if since != false {
-				sinceAddition = " WHERE id_array[1] < (SELECT id_array[1] FROM post_parent_tree WHERE id = " + sinceVal + " ) "
+				sinceAddition = " AND id_array[1] < (SELECT id_array[1] FROM posts WHERE id = " + sinceVal + " ) "
 			}
 		} else {
 			descflag = " ASC "
 			sortAddition = " ORDER BY id_array[1], id_array ASC"
 			if since != false {
-				sinceAddition = " WHERE id_array[1] > (SELECT id_array[1] FROM post_parent_tree WHERE id = " + sinceVal + " ) "
+				sinceAddition = " AND id_array[1] > (SELECT id_array[1] FROM posts WHERE id = " + sinceVal + " ) "
 			}
 		}
 
@@ -525,26 +526,31 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query :="SELECT author,created,forum,id,isedited,message,parent,thread from (" +
-			"WITH RECURSIVE post_parent_tree(id,id_array,author,created,forum,isedited,message,parent,thread) AS( "+
-			" SELECT p.id, array_append('{}'::bigint[], p.id) as id_arr, p.author, p.created, p.forum, p.isedited, p.message, p.parent, p.thread  "+
-			" FROM posts p "+
-			" WHERE p.parent = 0 AND p.thread = $1 " +
-
-			" UNION ALL "+
-
-			" SELECT p.id, array_append(id_array, p.id), p.author, p.created, p.forum, p.isedited, p.message, p.parent, p.thread " +
-			" FROM posts p "+
-			" JOIN post_parent_tree tree " +
-			" ON p.parent = tree.id "+
-			" ) "+
-			" SELECT id_array, post_parent_tree.id AS id, author, created, forum, isedited, message, parent, thread, " +
+			" SELECT author,id_array,created,forum,id,isedited,message,parent,thread, " +
 			" dense_rank() over (ORDER BY id_array[1] " + descflag + " ) AS rank " +
-			" FROM post_parent_tree " + sinceAddition + " ) AS tree " + limitAddition + " " + sortAddition
+			" FROM posts WHERE thread=$1 " + sinceAddition + " ) AS tree " + limitAddition + " " + sortAddition
+//query :="SELECT author,created,forum,id,isedited,message,parent,thread from (" +
+//			"WITH RECURSIVE post_parent_tree(id,id_array,author,created,forum,isedited,message,parent,thread) AS( "+
+//			" SELECT p.id, p.id_array, p.author, p.created, p.forum, p.isedited, p.message, p.parent, p.thread  "+
+//			" FROM posts p "+
+//			" WHERE p.parent = 0 AND p.thread = $1 " +
+//
+//			" UNION ALL "+
+//
+//			" SELECT p.id, p.id_array, p.author, p.created, p.forum, p.isedited, p.message, p.parent, p.thread " +
+//			" FROM posts p "+
+//			" JOIN post_parent_tree tree " +
+//			" ON p.parent = tree.id "+
+//			" ) "+
+//			" SELECT id_array, post_parent_tree.id AS id, author, created, forum, isedited, message, parent, thread, " +
+//			" dense_rank() over (ORDER BY id_array[1] " + descflag + " ) AS rank " +
+//			" FROM post_parent_tree " + sinceAddition + " ) AS tree " + limitAddition + " " + sortAddition
 
 		rows, err = db.Query(query, thr.Id)
 	}
 
 	if err != nil {
+		fmt.Println(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -558,11 +564,7 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) {
 
 		err = rows.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
 		if err != nil {
-
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		if err != nil {
+			fmt.Println(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -791,7 +793,7 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 	var firstCreated time.Time
 	var count = 0
 	//var err error
-	stmt, err := t.Prepare("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *")
+	stmt, err := t.Prepare("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5,$6) RETURNING author,created,forum,id,isedited,message,parent,thread")
 
 	if err != nil {
 		fmt.Println(err.Error())
@@ -803,7 +805,7 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 
 		newPost := models.Post{}
 		if count == 0 { // Для того, чтобы все последующие добавления постов происхдили с той же датой и временем.
-			row := t.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING *",
+			row := t.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING author,created,forum,id,isedited,message,parent,thread",
 				p.Author, thr.Forum,p.Message, p.Parent, thr.Id)
 			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
 				&newPost.Parent, &newPost.Thread)
@@ -940,7 +942,7 @@ func PostDetails(w http.ResponseWriter, r *http.Request){
 		}
 
 		if post.Message == "" {
-			row := db.QueryRow("SELECT * FROM posts WHERE id=$1", id)
+			row := db.QueryRow("SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE id=$1", id)
 
 			err = row.Scan(&post.Author,&post.Created,&post.Forum,&post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
 
@@ -956,7 +958,7 @@ func PostDetails(w http.ResponseWriter, r *http.Request){
 
 			return
 		}
-		row := db.QueryRow("UPDATE posts SET message=$1, isedited=true WHERE id=$2 RETURNING *", post.Message, id)
+		row := db.QueryRow("UPDATE posts SET message=$1, isedited=true WHERE id=$2 RETURNING author,created,forum,id,isedited,message,parent,thread", post.Message, id)
 		err = row.Scan(&post.Author,&post.Created,&post.Forum,&post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
 
 		if err != nil {
@@ -972,7 +974,7 @@ func PostDetails(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	row := db.QueryRow("SELECT * FROM posts WHERE id=$1;", id)
+	row := db.QueryRow("SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE id=$1;", id)
 
 	post := models.Post{}
 
@@ -1283,10 +1285,6 @@ curl -i --header "Content-Type: application/json" --request GET http://127.0.0.1
 */
 
 func ThreadCreate(w http.ResponseWriter, r *http.Request){
-	if r.Method == http.MethodGet {
-		return
-	}
-
 	body, readErr := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 
@@ -1339,6 +1337,7 @@ func ThreadCreate(w http.ResponseWriter, r *http.Request){
 	err = row.Scan(&newThr.Id, &newThr.Author, &newThr.Created, &newThr.Forum, &newThr.Message, &sqlSlug, &newThr.Title, &newThr.Votes)
 
 	if err != nil {
+		fmt.Println(err.Error())
 		errorName := err.(*pq.Error).Code.Name()
 
 		if errorName == "foreign_key_violation" || errorName == "not_null_violation"{
@@ -1443,7 +1442,14 @@ func ForumCreate(w http.ResponseWriter, r *http.Request){
 		if errorName == "unique_violation" {
 			row := db.QueryRow("SELECT * FROM forums WHERE slug=$1", forum.Slug)
 			fr := models.Forum{}
-			row.Scan(&fr.Posts, &fr.Slug, &fr.Threads, &fr.Title, &fr.User)
+			err := row.Scan(&fr.Posts, &fr.Slug, &fr.Threads, &fr.Title, &fr.User)
+
+			if err != nil {
+				fmt.Println(err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
 			w.Header().Set("content-type", "application/json")
 
 			w.WriteHeader(http.StatusConflict)

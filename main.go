@@ -45,7 +45,7 @@ func main(){
 	router.HandleFunc("/api/forum/create", handlers.ForumCreate)
 	router.HandleFunc(`/api/forum/{slug}/create`, handlers.ThreadCreate)
 	router.HandleFunc(`/api/forum/{slug}/details`, handlers.ForumDetails) // +
-	router.HandleFunc(`/api/forum/{slug}/threads`, handlers.ForumThreads) // + не оч
+	router.HandleFunc(`/api/forum/{slug}/threads`, handlers.ForumThreads) // - не оч
 	router.HandleFunc(`/api/forum/{slug}/users`, handlers.ForumUsers) // +
 
 	router.HandleFunc(`/api/post/{id}/details`, handlers.PostDetails) // +
