@@ -61,10 +61,10 @@ func main(){
 	router.HandleFunc(`/api/user/{nickname}/create`, handlers.UserCreate)
 	router.HandleFunc(`/api/user/{nickname}/profile`, handlers.UserProfile)  // + быстро
 
-	//siteHandler := AccessLogMiddleware(router)
+	siteHandler := AccessLogMiddleware(router)
 
 	http.Handle("/", router)
-	http.ListenAndServe(":5000", nil)
+	http.ListenAndServe(":5000", siteHandler)
 
 	defer db.Close()
 
