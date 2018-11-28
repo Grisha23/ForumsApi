@@ -133,7 +133,13 @@ LANGUAGE plpgsql;
 -- '
 -- LANGUAGE plpgsql;
 --
---
+-- CREATE OR REPLACE FUNCTION post_create_after() RETURNS TRIGGER AS'
+--   BEGIN
+--    NEW.id_array=array_append((SELECT id_array FROM posts WHERE id=NEW.parent), NEW.id);
+--    RETURN NEW;
+--   END;
+-- '
+-- LANGUAGE plpgsql;
 
 
 CREATE TRIGGER change_message
@@ -144,6 +150,9 @@ CREATE TRIGGER post_create
 BEFORE INSERT ON posts FOR EACH ROW
 EXECUTE PROCEDURE post_create();
 --
+-- CREATE TRIGGER post_create_after
+-- BEFORE INSERT ON posts FOR EACH ROW
+-- EXECUTE PROCEDURE post_create_after();
 
 CREATE INDEX IF NOT EXISTS post_i_cr ON posts (id, created); --+
 CREATE INDEX IF NOT EXISTS post_thr_i_cr ON posts (thread, id, created); --+

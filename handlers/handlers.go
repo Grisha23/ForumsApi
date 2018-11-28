@@ -491,16 +491,6 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) {
 			limitAddition = "LIMIT " + limitVal
 		}
 		query := "SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE thread=$1 " + sinceAddition + " " + sortAddition + " " + limitAddition
-		//query := "WITH RECURSIVE post_t(id,id_array,author,created,forum,isedited,message,parent,thread) AS " +
-		//	"(SELECT p.id, p.id_array as parents,p.author,p.created,p.forum,p.isedited,p.message,p.parent,p.thread FROM posts p " +
-		//	"WHERE p.parent = 0 AND p.thread=$1 " +
-		//
-		//	"UNION ALL " +
-		//
-		//	"SELECT p.id, p.id_array,p.author,p.created,p.forum,p.isedited,p.message,p.parent,p.thread " +
-		//	"FROM posts p " +
-		//	"JOIN post_t pt ON p.parent = pt.id) " +
-		//	"SELECT p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread FROM post_t p " + sinceAddition + " " + sortAddition + " " + limitAddition
 		rows, err = db.Query(query, thr.Id)
 	} else if sortVal == "parent_tree" {
 		descflag := ""
@@ -525,26 +515,10 @@ func ThreadPosts(w http.ResponseWriter, r *http.Request) {
 			limitAddition = " WHERE rank <= " + limitVal
 		}
 
-		query :="SELECT author,created,forum,id,isedited,message,parent,thread from (" +
+		query :="SELECT author,created,forum,id,isedited,message,parent,thread FROM (" +
 			" SELECT author,id_array,created,forum,id,isedited,message,parent,thread, " +
 			" dense_rank() over (ORDER BY id_array[1] " + descflag + " ) AS rank " +
 			" FROM posts WHERE thread=$1 " + sinceAddition + " ) AS tree " + limitAddition + " " + sortAddition
-//query :="SELECT author,created,forum,id,isedited,message,parent,thread from (" +
-//			"WITH RECURSIVE post_parent_tree(id,id_array,author,created,forum,isedited,message,parent,thread) AS( "+
-//			" SELECT p.id, p.id_array, p.author, p.created, p.forum, p.isedited, p.message, p.parent, p.thread  "+
-//			" FROM posts p "+
-//			" WHERE p.parent = 0 AND p.thread = $1 " +
-//
-//			" UNION ALL "+
-//
-//			" SELECT p.id, p.id_array, p.author, p.created, p.forum, p.isedited, p.message, p.parent, p.thread " +
-//			" FROM posts p "+
-//			" JOIN post_parent_tree tree " +
-//			" ON p.parent = tree.id "+
-//			" ) "+
-//			" SELECT id_array, post_parent_tree.id AS id, author, created, forum, isedited, message, parent, thread, " +
-//			" dense_rank() over (ORDER BY id_array[1] " + descflag + " ) AS rank " +
-//			" FROM post_parent_tree " + sinceAddition + " ) AS tree " + limitAddition + " " + sortAddition
 
 		rows, err = db.Query(query, thr.Id)
 	}
@@ -973,48 +947,315 @@ func PostDetails(w http.ResponseWriter, r *http.Request){
 
 		return
 	}
+	postDetail := models.PostDetail{}
 
-	row := db.QueryRow("SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE id=$1;", id)
+	//query := "SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE id=$1; "
 
-	post := models.Post{}
 
-	err := row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
+	//post := new(models.Post)
+	//row := db.QueryRow("SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE id=$1;", id)
+	//
+	//err := row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
+	//
+	//if err != nil {
+	//	sendError("Can't find post with id "+id+"\n", 404, &w)
+	//	return
+	//}
+	//
+	//postDetail.Post = post
+
+	//var query string
+
+	var oblectsArr []string
+	objects := strings.Split(related, ",")
+	for index := range objects  {
+		item := objects[index]
+		oblectsArr = append(oblectsArr, item)
+	}
+
+	var relUser = false
+	var relThread = false
+	var relForum = false
+
+	for index := range oblectsArr {
+		if oblectsArr[index] == "user" {
+			relUser = true
+			//query += "SELECT about,email,fullname,nickname FROM users WHERE nickname='" + post.Author + "'; "
+			//author, _ := getUser(post.Author, nil)
+			//postDetail.Author = author
+		}
+		if oblectsArr[index] == "thread" {
+			relThread = true
+			//_, err := strconv.Atoi(strconv.Itoa(int(post.Thread)))
+			//
+			//if err != nil {
+			//	query += "SELECT * FROM threads WHERE slug='" + strconv.Itoa(int(post.Thread)) + "'; "
+			//} else {
+			//	query += "SELECT * FROM threads WHERE id=" + strconv.Itoa(int(post.Thread)) + "; "
+			//}
+
+			//if err != nil {
+			//	w.WriteHeader(http.StatusInternalServerError)
+			//	return
+			//}
+
+			//postDetail.Thread = thread
+		}
+		if oblectsArr[index] == "forum" {
+			relForum = true
+			//query += "SELECT * FROM forums WHERE slug='" + post.Forum + "'; "
+			//forum, _ := getForum(post.Forum, nil)
+			//postDetail.Forum = forum
+		}
+	}
+
+	var err error
+	var sqlSlug sql.NullString
+
+	if !relUser && !relThread && !relForum {
+		post := new(models.Post)
+		row := db.QueryRow("SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE id=$1;", id)
+
+		err = row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
+
+		postDetail.Post = post
+
+	} else if !relUser && !relThread && relForum {
+
+		query := "SELECT p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread, f.posts, f.slug, f.threads, f.title, f.author FROM posts p " +
+			"JOIN forums f ON p.id=$1 AND p.forum=f.slug"
+		row := db.QueryRow(query, id)
+
+		forum := new(models.Forum)
+		post := new(models.Post)
+
+		err = row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread,
+			&forum.Posts, &forum.Slug, &forum.Threads, &forum.Title, &forum.User)
+
+		postDetail.Forum = forum
+		postDetail.Post = post
+
+		} else if !relUser && relThread && !relForum {
+
+		query := "SELECT p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread, t.id, t.author, t.created, t.forum, t.message, t.slug, t.title, t.votes FROM posts p " +
+			"JOIN threads t ON p.id=$1 AND p.thread=t.id"
+		row := db.QueryRow(query, id)
+
+		thr := new(models.Thread)
+		post := new(models.Post)
+
+		err = row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread,
+			&thr.Id, &thr.Author, &thr.Created, &thr.Forum,  &thr.Message, &sqlSlug, &thr.Title, &thr.Votes)
+
+		if !sqlSlug.Valid {
+			thr.Slug = ""
+		} else {
+			thr.Slug = sqlSlug.String
+		}
+
+
+		postDetail.Thread = thr
+		postDetail.Post = post
+
+		} else if !relUser && relThread && relForum {
+
+		query := "SELECT p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread, t.id, t.author, t.created, t.forum, t.message, t.slug, t.title, t.votes,  f.posts, f.slug, f.threads, f.title, f.author  FROM posts p " +
+			"JOIN threads t ON p.id=$1 AND p.thread=t.id JOIN forums f ON p.forum=f.slug"
+		row := db.QueryRow(query, id)
+
+		thr := new(models.Thread)
+		forum := new(models.Forum)
+		post := new(models.Post)
+
+		err = row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread,
+			&thr.Id, &thr.Author, &thr.Created, &thr.Forum,  &thr.Message, &sqlSlug, &thr.Title, &thr.Votes,
+			&forum.Posts, &forum.Slug, &forum.Threads, &forum.Title, &forum.User)
+
+		if !sqlSlug.Valid {
+			thr.Slug = ""
+		} else {
+			thr.Slug = sqlSlug.String
+		}
+
+
+		postDetail.Thread = thr
+		postDetail.Post = post
+		postDetail.Forum = forum
+
+		} else if relUser && !relThread && !relForum {
+
+		query := "SELECT p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread, u.about, u.email, u.fullname, u.nickname FROM posts p " +
+			"JOIN users u ON p.id=$1 AND u.nickname=p.author"
+		row := db.QueryRow(query, id)
+
+		user := new(models.User)
+		post := new(models.Post)
+
+		err = row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread,
+			&user.About, &user.Email, &user.FullName, &user.NickName)
+
+		postDetail.Author = user
+		postDetail.Post = post
+
+		} else if relUser && !relThread && relForum {
+
+		query := "SELECT p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread, u.about, u.email, u.fullname, u.nickname, f.posts, f.slug, f.threads, f.title, f.author   FROM posts p " +
+			"JOIN users u ON p.id=$1 AND u.nickname=p.author " +
+			"JOIN forums f ON p.forum=f.slug"
+		row := db.QueryRow(query, id)
+
+		user := new(models.User)
+		post := new(models.Post)
+		forum := new(models.Forum)
+
+		err = row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread,
+			&user.About, &user.Email, &user.FullName, &user.NickName,
+			&forum.Posts, &forum.Slug, &forum.Threads, &forum.Title, &forum.User)
+
+		postDetail.Author = user
+		postDetail.Post = post
+		postDetail.Forum = forum
+
+		} else if relUser && relThread && !relForum {
+
+		query := "SELECT p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread, u.about, u.email, u.fullname, u.nickname,  t.id, t.author, t.created, t.forum, t.message, t.slug, t.title, t.votes FROM posts p " +
+			"JOIN users u ON p.id=$1 AND u.nickname=p.author " +
+			"JOIN threads t ON p.thread=t.id"
+		row := db.QueryRow(query, id)
+
+		user := new(models.User)
+		post := new(models.Post)
+		thr := new(models.Thread)
+
+		err = row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread,
+			&user.About, &user.Email, &user.FullName, &user.NickName,
+			&thr.Id, &thr.Author, &thr.Created, &thr.Forum,  &thr.Message, &sqlSlug, &thr.Title, &thr.Votes)
+
+		if !sqlSlug.Valid {
+			thr.Slug = ""
+		} else {
+			thr.Slug = sqlSlug.String
+		}
+
+
+		postDetail.Author = user
+		postDetail.Post = post
+		postDetail.Thread = thr
+
+		} else if relUser && relThread && relForum {
+
+		query := "SELECT p.author,p.created,p.forum,p.id,p.isedited,p.message,p.parent,p.thread, u.about, u.email, u.fullname, u.nickname,  t.id, t.author, t.created, t.forum, t.message, t.slug, t.title, t.votes , f.posts, f.slug, f.threads, f.title, f.author FROM posts p " +
+			"JOIN users u ON p.id=$1 AND u.nickname=p.author " +
+			"JOIN threads t ON p.thread=t.id " +
+			"JOIN forums f ON p.forum=f.slug"
+		row := db.QueryRow(query, id)
+
+		user := new(models.User)
+		post := new(models.Post)
+		thr := new(models.Thread)
+		forum := new(models.Forum)
+
+		err = row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread,
+			&user.About, &user.Email, &user.FullName, &user.NickName,
+			&thr.Id, &thr.Author, &thr.Created, &thr.Forum,  &thr.Message, &sqlSlug, &thr.Title, &thr.Votes,
+			&forum.Posts, &forum.Slug, &forum.Threads, &forum.Title, &forum.User)
+
+		if !sqlSlug.Valid {
+			thr.Slug = ""
+		} else {
+			thr.Slug = sqlSlug.String
+		}
+
+
+		postDetail.Author = user
+		postDetail.Post = post
+		postDetail.Thread = thr
+		postDetail.Forum = forum
+
+		}
+
 
 	if err != nil {
-		sendError( "Can't find post with id " + id + "\n", 404, &w)
+		fmt.Println(err.Error())
+		sendError("Can't find post with id "+id+"\n", 404, &w)
 		return
 	}
 
-	postDetail := models.PostDetail{}
+	//rows, err := db.Query(query)
 
-	postDetail.Post = &post
+	//fmt.Println(query)
 
-	var relatedObj []string
-	pathItems := strings.Split(related, ",")
-	for index := range pathItems  {
-		item := pathItems[index]
-		relatedObj = append(relatedObj, item)
-	}
-	for index := range relatedObj {
-		if relatedObj[index] == "user" {
-			author, _ := getUser(post.Author, nil)
-			postDetail.Author = author
-		}
-		if relatedObj[index] == "thread" {
-			thread, err := getThread(strconv.Itoa(int(post.Thread)), nil)
+	//if err != nil {
+	//	sendError("Can't find post with id "+id+"\n", 404, &w)
+	//	return
+	//}
 
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
 
-			postDetail.Thread = thread
-		}
-		if relatedObj[index] == "forum" {
-			forum, _ := getForum(post.Forum, nil)
-			postDetail.Forum = forum
-		}
-	}
+	//fmt.Println("before")
+	//for rows.Next(){
+	//	fmt.Println("after")
+	//
+	//	if relUser {
+	//		fmt.Println("get user")
+	//
+	//		user := new(models.User)
+	//		err := rows.Scan(&user.About, &user.Email, &user.FullName, &user.NickName)
+	//		if err != nil {
+	//			fmt.Println(err.Error())
+	//			sendError("user", 500, &w)
+	//			return
+	//		}
+	//
+	//		postDetail.Author = user
+	//
+	//		relUser = false
+	//	} else if relThread {
+	//		fmt.Println("get thread")
+	//
+	//		thr := new(models.Thread)
+	//		err = rows.Scan(&thr.Id, &thr.Author, &thr.Created, &thr.Forum,  &thr.Message, &thr.Slug, &thr.Title, &thr.Votes)
+	//
+	//		if err != nil {
+	//			sendError("thread", 500, &w)
+	//			return
+	//		}
+	//
+	//		postDetail.Thread = thr
+	//
+	//		relThread = false
+	//	} else if relForum {
+	//		fmt.Println("get forum")
+	//
+	//		forum := new(models.Forum)
+	//		err = rows.Scan(&forum.Posts, &forum.Slug, &forum.Threads, &forum.Title, &forum.User)
+	//
+	//		if err != nil {
+	//			sendError("forum", 500, &w)
+	//			return
+	//		}
+	//
+	//		postDetail.Forum = forum
+	//
+	//		relForum = false
+	//	}
+	//
+	//}
+
+
+
+
+	//row := db.QueryRow("SELECT author,created,forum,id,isedited,message,parent,thread FROM posts WHERE id=$1", id)
+
+	//post := models.Post{}
+
+	//err := row.Scan(&post.Author, &post.Created, &post.Forum, &post.Id, &post.IsEdited, &post.Message, &post.Parent, &post.Thread)
+
+	//if err != nil {
+	//	sendError( "Can't find post with id " + id + "\n", 404, &w)
+	//	return
+	//}
+
+
 
 	resp, _ := json.Marshal(postDetail)
 	w.Header().Set("content-type", "application/json")
