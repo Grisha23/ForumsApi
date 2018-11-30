@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
 
 
@@ -720,12 +719,11 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 
 	err = json.Unmarshal(body, &posts)
 
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	data := make([]models.Post,0)
 
 	t, err := db.Begin()
 
@@ -742,85 +740,142 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
 	thr, err := getThread(slugOrId, nil)
 
 	if err != nil{
 		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
 		return
 	}
-	//thr := new(models.Thread)
-	//thrId, err := strconv.Atoi(slugOrId)
-	//if err == nil {
-	//	thr.Id = int32(thrId)
-	//} else {
-	//	thr, err = getThread(slugOrId)
-	//
-	//	if err != nil{
-	//		sendError("Can't find thread with id " + slugOrId + "\n", 404, &w)
-	//		return
-	//	}
-	//
-	//}
 
 	defer t.Rollback()
+	if len(posts) == 0 {
+		data := make([]models.Post,0)
 
-	var firstCreated time.Time
-	var count = 0
-	//var err error
-	stmt, err := t.Prepare("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5,$6) RETURNING author,created,forum,id,isedited,message,parent,thread")
+		resp, err := json.Marshal(data)
 
-	if err != nil {
-		fmt.Println(err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("content-type", "application/json")
+
+		w.WriteHeader(http.StatusCreated)
+		w.Write(resp)
 		return
 	}
 
+
+
+	//var firstCreated time.Time
+	//var err error
+	//stmt, err := t.Prepare("INSERT INTO posts(author, forum, message, parent, thread, created) VALUES ($1,$2,$3,$4,$5,$6) RETURNING author,created,forum,id,isedited,message,parent,thread")
+
+
+	resQuery :=  "INSERT INTO posts(author, forum, message, parent, thread) VALUES "
+
+	forumUsersInsert := "INSERT INTO forum_users(forum,author) VALUES "
+
+	var subQuery []string
+	var forumUsersSubQuery []string
+
 	for _, p := range posts{
 
-		newPost := models.Post{}
-		if count == 0 { // Для того, чтобы все последующие добавления постов происхдили с той же датой и временем.
-			row := t.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING author,created,forum,id,isedited,message,parent,thread",
-				p.Author, thr.Forum,p.Message, p.Parent, thr.Id)
-			err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
-				&newPost.Parent, &newPost.Thread)
 
-			firstCreated = newPost.Created
-		} else {
-			row := stmt.QueryRow(p.Author, thr.Forum,p.Message, p.Parent, thr.Id, firstCreated)
-			err = row.Scan(&newPost.Author,  &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
-				&newPost.Parent, &newPost.Thread)
+		values := fmt.Sprintf("('%s', '%s', '%s', %d, %d) ", p.Author, thr.Forum, p.Message, p.Parent, thr.Id)
+
+		//query += subQuery
+
+		subQuery = append(subQuery, values)
+
+		//newPost := models.Post{}
+		//if count == 0 { // Для того, чтобы все последующие добавления постов происхдили с той же датой и временем.
+		//	row := t.QueryRow("INSERT INTO posts(author, forum, message, parent, thread) VALUES ($1,$2,$3,$4,$5) RETURNING author,created,forum,id,isedited,message,parent,thread",
+		//		p.Author, thr.Forum,p.Message, p.Parent, thr.Id)
+		//	err = row.Scan(&newPost.Author, &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
+		//		&newPost.Parent, &newPost.Thread)
+		//
+		//	firstCreated = newPost.Created
+		//} else {
+		//	row := stmt.QueryRow(p.Author, thr.Forum,p.Message, p.Parent, thr.Id, firstCreated)
+		//	err = row.Scan(&newPost.Author,  &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
+		//		&newPost.Parent, &newPost.Thread)
+		//}
+
+		//_,err := t.Exec("INSERT INTO forum_users(forum,author) VALUES ($1,$2) ON CONFLICT DO NOTHING", thr.Forum, p.Author)
+
+
+		forumUsersValues := fmt.Sprintf("('%s', '%s') ", thr.Forum, p.Author)
+
+		forumUsersSubQuery = append(forumUsersSubQuery, forumUsersValues)
+
+		//if err != nil {
+		//	fmt.Println("postCreate insert forum_users ", err.Error())
+		//}
+
+		//data = append(data, newPost)
+
+
+	}
+
+	resQuery += strings.Join(subQuery, ",") + " RETURNING author,created,forum,id,isedited,message,parent,thread;"
+
+	forumUsersInsert += strings.Join(forumUsersSubQuery, ",") + " ON CONFLICT DO NOTHING;"
+
+	resQuery += forumUsersInsert
+
+	fmt.Println(resQuery)
+
+	rows, err := t.Query(resQuery)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		errorName := err.(*pq.Error).Code.Name()
+
+		fmt.Println(errorName)
+		if err.Error() == "pq: Parent post exc" {
+			sendError("Parent post was created in another thread \n", 409, &w)
+			return
 		}
 
-
-		if err != nil {
-			fmt.Println(err.Error())
-			errorName := err.(*pq.Error).Code.Name()
-
-			fmt.Println(errorName)
-			if err.Error() == "pq: Parent post exc" {
-				sendError("Parent post was created in another thread \n", 409, &w)
-				return
-			}
-
-			if errorName == "foreign_key_violation" {
-				sendError("Can't find parent post \n", 404, &w)
-				return
-			}
-
+		if errorName == "foreign_key_violation" {
 			sendError("Can't find parent post \n", 404, &w)
 			return
 		}
 
-		_,err := t.Exec("INSERT INTO forum_users(forum,author) VALUES ($1,$2) ON CONFLICT DO NOTHING", thr.Forum, p.Author)
+		if errorName != "syntax_error" {
+			sendError("Can't find parent post \n", 404, &w)
+			return
+		}
+
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	//_, err = db.Exec(forumUsersInsert)
+	//
+	//if err != nil {
+	//	fmt.Println("forumUsersInsert ---- ", err.Error())
+	//	return
+	//}
+
+
+
+	data := make([]models.Post,0)
+
+	for rows.Next() {
+		newPost := models.Post{}
+
+		err := rows.Scan(&newPost.Author,  &newPost.Created, &newPost.Forum, &newPost.Id, &newPost.IsEdited, &newPost.Message,
+				&newPost.Parent, &newPost.Thread)
 
 		if err != nil {
-			fmt.Println("postCreate insert forum_users ", err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 
 		data = append(data, newPost)
-
-		count++
-
 	}
 
 	resp, err := json.Marshal(data)
@@ -1407,11 +1462,11 @@ func ForumThreads(w http.ResponseWriter, r *http.Request){
 
 	vars := mux.Vars(r)
 	slug := vars["slug"]
-	frm, _ := getForum(slug, nil)  // Исправить
-	if frm == nil {
-		sendError("Can't find forum with slug " + slug + "\n", 404, &w)
-		return
-	}
+	//frm, _ := getForum(slug, nil)  // Исправить
+	//if frm == nil {
+	//	sendError("Can't find forum with slug " + slug + "\n", 404, &w)
+	//	return
+	//}
 
 	var rows *sql.Rows
 
@@ -1443,8 +1498,13 @@ func ForumThreads(w http.ResponseWriter, r *http.Request){
 	}
 
 	thrs := make([]models.Thread, 0)
+
 	var nullSlug sql.NullString
+
+	var flag = false
+
 	for rows.Next() {
+		flag = true
 		thr := models.Thread{}
 		err := rows.Scan(&thr.Id, &thr.Author, &thr.Created, &thr.Forum,  &thr.Message, &nullSlug, &thr.Title, &thr.Votes)
 
@@ -1461,6 +1521,15 @@ func ForumThreads(w http.ResponseWriter, r *http.Request){
 		}
 		thrs = append(thrs, thr)
 	}
+
+	if flag == false {
+		frm, _ := getForum(slug, nil)
+		if frm == nil {
+			sendError("Can't find forum with slug " + slug + "\n", 404, &w)
+			return
+		}
+	}
+
 	defer rows.Close()
 
 
@@ -1497,15 +1566,12 @@ curl -i --header "Content-Type: application/json" --request GET http://127.0.0.1
 */
 
 func ForumDetails(w http.ResponseWriter, r *http.Request){
-	if r.Method != http.MethodGet {
-		return
-	}
 	vars := mux.Vars(r)
 	slug := vars["slug"]
 	frm, err := getForum(slug, nil)
 
-	if err != nil { // Значит строка пустая.
-		sendError( "Can't find user with slug " + slug + "\n", 404, &w)
+	if err != nil {
+		sendError( "Can't find forum with slug " + slug + "\n", 404, &w)
 		return
 	}
 

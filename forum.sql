@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS user_nickname ON users (nickname);
 
 
 
--------------------- FROUMS -------------------
+-------------------- FORUMS -------------------
 CREATE TABLE IF NOT EXISTS forums (
 	posts BIGINT DEFAULT 0,
 	slug CITEXT NOT NULL UNIQUE,
