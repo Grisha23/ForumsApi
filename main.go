@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"time"
 )
+
+
 func AccessLogMiddleware (mux *mux.Router,) http.HandlerFunc   {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		begin := time.Now()
@@ -61,10 +63,10 @@ func main(){
 	router.HandleFunc(`/api/user/{nickname}/create`, handlers.UserCreate)
 	router.HandleFunc(`/api/user/{nickname}/profile`, handlers.UserProfile)  // + быстро
 
-	siteHandler := AccessLogMiddleware(router)
+//	siteHandler := AccessLogMiddleware(router)
 
 	http.Handle("/", router)
-	http.ListenAndServe(":5000", siteHandler)
+	http.ListenAndServe(":5000", nil)
 
 	defer db.Close()
 

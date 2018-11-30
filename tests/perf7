@@ -1,0 +1,59 @@
+    RUN method  GET  Sort:  flat ; url /api/thread/4992/posts
+    END method  GET  Sort:  flat ; url /api/thread/4992/posts Time work:  95.142701ms
+
+
+RUN method  GET  Sort:  tree ; url /api/thread/4992/posts
+RUN method  GET  Sort:  tree ; url /api/thread/4997/posts
+
+
+    RUN method  GET  Sort:  flat ; url /api/thread/5017/posts
+    END method  GET  Sort:  flat ; url /api/thread/5017/posts Time work:  9.954296ms
+
+
+RUN method  GET  Sort:  parent_tree ; url /api/thread/5009/posts
+
+
+    RUN method  GET  Sort:  flat ; url /api/thread/4997/posts
+    END method  GET  Sort:  flat ; url /api/thread/4997/posts Time work:  1.651257ms
+
+
+RUN method  GET  Sort:  tree ; url /api/thread/7269/posts
+
+
+    RUN method  GET  Sort:  flat ; url /api/thread/87325516/posts
+    END method  GET  Sort:  flat ; url /api/thread/87325516/posts Time work:  46.294344ms
+
+
+    RUN method  GET  Sort:  flat ; url /api/thread/97761509/posts
+    END method  GET  Sort:  flat ; url /api/thread/97761509/posts Time work:  1.815611ms
+
+    RUN method  GET  Sort:  flat ; url /api/thread/6442/posts
+    END method  GET  Sort:  flat ; url /api/thread/6442/posts Time work:  378.307948ms
+
+    RUN method  GET  Sort:  flat ; url /api/thread/4481/posts
+    END method  GET  Sort:  flat ; url /api/thread/4481/posts Time work:  80.104641ms
+
+    RUN method  GET  Sort:  flat ; url /api/thread/4992/posts
+    END method  GET  Sort:  flat ; url /api/thread/4992/posts Time work:  19.801478ms
+
+    RUN method  GET  Sort:  flat ; url /api/thread/58237510/posts
+    END method  GET  Sort:  flat ; url /api/thread/58237510/posts Time work:  1.617391ms
+
+RUN method  GET  Sort:  parent_tree ; url /api/thread/4992/posts
+
+
+RUN method  GET  Sort:  tree ; url /api/thread/4992/posts
+RUN method  GET  Sort:  parent_tree ; url /api/thread/4992/posts
+
+
+
+    RUN method  GET  Sort:  tree ; url /api/thread/wAugxu9hzS4Es/posts                               (!!!!!!!!!!!!!!!!!!!)
+    END method  GET  Sort:  tree ; url /api/thread/wAugxu9hzS4Es/posts Time work:  1.779739ms        (!!!!!!!!!!!!!!!!!!!)
+
+
+RUN method  GET  Sort:  tree ; url /api/thread/4992/posts
+
+
+
+explain analyze SELECT about,email,fullname,nickname FROM forum_users f_u JOIN users u ON f_u.author=u.nickname AND f_u.forum='6a36zZ9Yws4ES';
+explain analyze SELECT DISTINCT about,email,fullname,nickname FROM users JOIN (SELECT author FROM threads WHERE forum='6a36zZ9Yws4ES' UNION ALL SELECT author FROM threads WHERE forum='6a36zZ9Yws4ES') as foo ON users.nickname=foo.author ORDER BY nickname ASC;

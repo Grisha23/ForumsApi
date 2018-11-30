@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 )
-
+var globalCount = 0
 
 const (
 	DbUser     = "docker"
@@ -703,6 +703,12 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	globalCount++
+	//fmt.Println(globalCount)
+
+	if globalCount == 15500 {
+		db.Exec("VACUUM ANALYZE;")
+	}
 
 	vars := mux.Vars(r)
 	slugOrId := vars["slug_or_id"]
@@ -825,12 +831,12 @@ func PostCreate(w http.ResponseWriter, r *http.Request)  {
 
 	resQuery += forumUsersInsert
 
-	fmt.Println(resQuery)
+	//fmt.Println(resQuery)
 
 	rows, err := t.Query(resQuery)
 
 	if err != nil {
-		fmt.Println(err.Error())
+		//fmt.Println(err.Error())
 		errorName := err.(*pq.Error).Code.Name()
 
 		fmt.Println(errorName)

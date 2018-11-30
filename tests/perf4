@@ -1,0 +1,114 @@
+method GET ; url /api Time work:  47.758µs
+method GET ; url /api/user/huc.t7y1jwylkrn1pk/profile Time work:  479.137399ms
+method GET ; url /api/user/id.Rr0VRqYKLpg1PL/profile Time work:  982.111µs
+method GET ; url /api/user/nec.L043eOzyfpG17/profile Time work:  487.111183ms
+method GET ; url /api/forum/I_p3qGobJ8nXR/details Time work:  499.620509ms
+method GET ; url /api/post/848680/details Time work:  521.778517ms
+method GET ; url /api/forum/1K96stHl3rPEk/details Time work:  30.168095ms
+method GET ; url /api/forum/-4cOsZ_AAK4Es/details Time work:  530.969796ms
+method GET ; url /api/forum/an5OsT1laRNER/details Time work:  537.18653ms
+method GET ; url /api/forum/4HJO8QHMM84XR/threads Time work:  29.019433ms
+method GET ; url /api/thread/5001/details Time work:  905.608µs
+method GET ; url /api/post/824407/details Time work:  24.456384ms
+method GET ; url /api/post/749687/details Time work:  47.206844ms
+method GET ; url /api/thread/6IHftZo1584EK/details Time work:  938.383µs
+method GET ; url /api/post/749687/details Time work:  9.888188ms
+method GET ; url /api/post/21919021/details Time work:  61.761006ms
+method GET ; url /api/forum/i8u6kg1lLsPv8/details Time work:  4.586866ms
+method GET ; url /api/forum/RKU6RTbML8Pxr/threads Time work:  105.494002ms
+method GET ; url /api/thread/4992/details Time work:  887.567µs
+method GET ; url /api/post/65550/details Time work:  165.143237ms
+method GET ; url /api/thread/5004/details Time work:  860.921µs
+method GET ; url /api/user/FUISSE.3yP6JeAK9R21p1/profile Time work:  602.965217ms
+method GET ; url /api/user/cum.fl1z7q0l3741jv/profile Time work:  1.156365ms
+method GET ; url /api/thread/5001/details Time work:  1.843781ms
+method GET ; url /api/thread/31373749/details Time work:  790.47µs
+method GET ; url /api/thread/4992/posts Time work:  26.805827671s
+method GET ; url /api/post/816418/details Time work:  341.500992ms
+method GET ; url /api/post/749687/details Time work:  844.591331ms
+method GET ; url /api/thread/4992/posts Time work:  44.541284703s
+method GET ; url /api/user/movent.85eupwy9lr2dpx/profile Time work:  24.823911ms
+method GET ; url /api/thread/4991/posts Time work:  349.181854ms
+method GET ; url /api/forum/rku6rtBml8pXR/threads Time work:  260.339374ms
+method GET ; url /api/thread/5001/posts Time work:  45.461951795s
+method GET ; url /api/forum/Xp56Rz_aMK0XK/users Time work:  45.414984955s
+method GET ; url /api/forum/AN5OST1LARNER/users Time work:  45.465176055s
+method GET ; url /api/user/me.wskzroak3p2v7d/profile Time work:  336.031µs
+method GET ; url /api/forum/4HjO8QhMm84xr/details Time work:  51.422321ms
+method GET ; url /api/post/749687/details Time work:  61.551664ms
+method GET ; url /api/forum/4r9ostBaL8NX8/threads Time work:  350.606751ms
+method GET ; url /api/user/GYROS.Iy9H7wbkkrNd7V/profile Time work:  1.657553ms
+method GET ; url /api/thread/5001/details Time work:  2.01709ms
+method GET ; url /api/thread/4592/details Time work:  42.933246ms
+method GET ; url /api/forum/08U-KqBaLkpXKE/details Time work:  32.604228ms
+method GET ; url /api/post/750123/details Time work:  24.671771ms
+method GET ; url /api/thread/5001/posts Time work:  46.151613638s
+method GET ; url /api/user/CARNEIS.0W5MRO09L7G17T/profile Time work:  9.865846ms
+method GET ; url /api/forum/c0j6SqH3A8n2k/details Time work:  1.677746ms
+method GET ; url /api/thread/5001/posts Time work:  45.934369217s
+method GET ; url /api/post/749704/details Time work:  7.463334ms
+method GET ; url /api/user/cotidie.Ay8v7EBK9pgu73/profile Time work:  89.911071ms
+method GET ; url /api/thread/4992/details Time work:  354.575µs
+method GET ; url /api/forum/TBfiRq1llR0XS/details Time work:  18.6432ms
+method GET ; url /api/forum/90j68ghaLknvR/users Time work:  46.164251431s
+method GET ; url /api/forum/S456rQhLmSpE8/users Time work:  25.668476423s
+
+SELECT DISTINCT about,email,fullname,nickname FROM users u LEFT JOIN threads t ON t.author=u.nickname AND
+t.forum='TBfiRq1llR0XS' JOIN posts p ON (u.nickname=p.author AND p.forum='TBfiRq1llR0XS') OR t.author<>NULL ORDER BY nickname ASC;
+
+
+explain analyze SELECT * FROM users WHERE nickname IN (SELECT author FROM threads WHERE forum='TBfiRq1llR0XS' GROUP BY author)
+OR
+nickname IN (SELECT author FROM posts WHERE forum='TBfiRq1llR0XS' GROUP BY author) ORDER BY nickname ASC;
+
+
+
+
+explain analyze
+SELECT DISTINCT about,email,fullname,nickname FROM users JOIN (SELECT author FROM threads WHERE forum='TBfiRq1llR0XS'
+UNION ALL
+SELECT author FROM threads WHERE forum='TBfiRq1llR0XS') as foo ON users.nickname=foo.author ORDER BY nickname ASC;
+
+
+
+
+"explain analyze
+SELECT about,email,fullname,nickname FROM users u
+JOIN
+threads t ON u.nickname=t.author AND t.forum='TBfiRq1llR0XS'
+UNION
+SELECT about,email,fullname,nickname FROM users u
+JOIN
+posts p ON u.nickname=p.author AND p.forum='TBfiRq1llR0XS';"
+
+
+
+
+
+
+explain analyze SELECT DISTINCT about,email,fullname,nickname FROM users u LEFT JOIN threads t ON t.author=u.nickname AND t.forum='TBfiRq1llR0XS' LEFT JOIN posts p ON (u.nickname=p.author AND p.forum='TBfiRq1llR0XS') WHERE t.id IS NOT NULL OR p.id IS NOT NULL ORDER BY nickname ASC;
+
+
+_________________ Новое - старое
+---
+20
+---
+explain analyze
+SELECT DISTINCT about,email,fullname,nickname FROM users
+JOIN
+(SELECT author FROM threads WHERE forum='TBfiRq1llR0XS'
+UNION ALL
+SELECT author FROM threads WHERE forum='TBfiRq1llR0XS') as foo ON users.nickname=foo.author ORDER BY nickname DESC;
+
+-----
+150-170
+----
+explain analyze
+SELECT * FROM users WHERE nickname IN
+(SELECT author FROM threads WHERE forum='TBfiRq1llR0XS' GROUP BY author)
+OR nickname IN
+(SELECT author FROM posts WHERE forum='TBfiRq1llR0XS' GROUP BY author) ORDER BY nickname DESC;
+
+
+
+

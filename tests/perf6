@@ -1,0 +1,15 @@
+method GET ; url /api/thread/31373749/details Time work:  3.033043452s
+method GET ; url /api/post/816418/details Time work:  3.011218879s
+method GET ; url /api/forum/c0j6SqH3A8n2k/users Time work:  1m11.438594957s
+method GET ; url /api/forum/Xp56Rz_aMK0XK/users Time work:  1m16.239887456s
+method GET ; url /api/forum/i8u6kg1lLsPv8/users Time work:  1m16.867971152s
+method GET ; url /api/forum/AN5OST1LARNER/users Time work:  1m23.254630379s
+method GET ; url /api/forum/90j68ghaLknvR/users Time work:  2m2.931754539s
+method GET ; url /api/forum/b4FiRG1mmrPx8/users Time work:  1m6.56095489s
+method GET ; url /api/forum/rku6rtBml8pXR/users Time work:  1m21.856935968s
+method GET ; url /api/forum/90j68ghaLknvR/users Time work:  1m19.900081666s
+method GET ; url /api/forum/b4firg1mmrpx8/users Time work:  1m12.133010306s
+method GET ; url /api/forum/C0J6sQh3a8N2K/users Time work:  2.919802599s
+method GET ; url /api/forum/xP56rZ_Amk0xk/users Time work:  4.18166974s
+method GET ; url /api/forum/tbfirq1llr0xs/users Time work:  2m30.952836828s
+method GET ; url /api/forum/9SWO8Z13A8NVR/users Time work:  2m42.691872086s

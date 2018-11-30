@@ -1,0 +1,136 @@
+GRANT ALL PRIVILEGES ON ALL TABLEs IN SCHEMA PUBLIC TO tpforumsapi;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA PUBLIC TO tpforumsapi;
+
+
+method  GET ; url /api Time work:  68.277µs
+method  GET ; url /api/forum/CqTo0Pr6iVnxk/details Time work:  191.26651ms
+method  GET ; url /api/forum/PMUXTc-I6E42S/users Time work:  195.064502ms
+method  GET ; url /api/forum/9GTIppKI-2PE8/details Time work:  196.939273ms
+method  GET ; url /api/forum/Kc9EzJO-6vNVK/details Time work:  198.127117ms
+method  GET ; url /api/forum/q_T-n4S6Oxnvk/details Time work:  3.414733ms
+method  GET ; url /api/user/istuc.NMpZ447MmDN17k/profile Time work:  24.449171ms
+method  GET ; url /api/user/dinoscens.7i8uqFZ6zUNuP/profile Time work:  216.737029ms
+method  GET ; url /api/forum/ETZIN0KI6VNE8/threads Time work:  196.498526ms
+method  GET ; url /api/user/SCIUNT.3Q6H2gr6HUGURx/profile Time work:  1.535868ms
+method  GET ; url /api/thread/5003/details Time work:  1.009875ms
+method  GET ; url /api/forum/6_Q60NS6IENE8V/threads Time work:  495.575233ms
+method  GET ; url /api/post/21919021/details Time work:  1.923687ms
+method  GET ; url /api/post/824495/details Time work:  300.287459ms
+method  GET ; url /api/post/848467/details Time work:  532.489562ms
+method  GET ; url /api/thread/4993/posts  Sort:  flat Time work:  591.847838ms
+method  GET ; url /api/forum/-1gON0S66X4xk/details Time work:  4.386791ms
+method  GET ; url /api/thread/5003/posts  Sort:  flat Time work:  441.212436ms
+method  GET ; url /api/thread/5Yo-qciO6V0xS/details Time work:  150.984761ms
+method  GET ; url /api/post/749695/details Time work:  259.560833ms
+method  GET ; url /api/user/vae.bh9hn2pmzunu7k/profile Time work:  860.778µs
+method  GET ; url /api/post/749695/details Time work:  148.863529ms
+method  GET ; url /api/thread/5003/details Time work:  1.040046ms
+method  GET ; url /api/thread/31373749/details Time work:  1.001794ms
+method  GET ; url /api/post/816360/details Time work:  2.044086ms
+method  GET ; url /api/forum/R1g6008IOvn2r/threads Time work:  141.941932ms
+method  GET ; url /api/post/749695/details Time work:  5.165252ms
+method  GET ; url /api/user/fieri.qy4v4nj6zdgdp9/profile Time work:  905.885µs
+method  GET ; url /api/thread/4990/posts  Sort:  flat Time work:  137.38863ms
+method  GET ; url /api/forum/HUTO0086OV02S/threads Time work:  179.991494ms
+method  GET ; url /api/post/749695/details Time work:  2.747133ms
+method  GET ; url /api/post/750191/details Time work:  1.343971ms
+method  GET ; url /api/post/750191/details Time work:  1.49934ms
+method  GET ; url /api/forum/Gzz64pS6ov0es/users Time work:  536.016861ms
+method  GET ; url /api/forum/4-omTC-662pE8/users Time work:  818.523µs
+method  GET ; url /api/user/impressum.99xzn2jhm1nup1/profile Time work:  761.125µs
+method  GET ; url /api/forum/9GTIPPKI-2PE8/users Time work:  1.012015849s
+method  GET ; url /api/forum/AzTOp4Ko-E0VS/users Time work:  996.146473ms
+method  GET ; url /api/post/749695/details Time work:  5.139866ms
+method  GET ; url /api/user/TUAM.dB8z427mZVGURV/profile Time work:  545.024µs
+method  GET ; url /api/thread/5003/details Time work:  418.635µs
+method  GET ; url /api/forum/IZT64nKoo2nxS/users Time work:  544.303521ms
+method  GET ; url /api/forum/hht60NkioVnVK/details Time work:  1.124636ms
+method  GET ; url /api/post/750126/details Time work:  69.316101ms
+method  GET ; url /api/thread/4588/details Time work:  91.404258ms
+method  GET ; url /api/user/ELIGAM.DSWHNNJZHUN17L/profile Time work:  1.516754ms
+method  GET ; url /api/forum/9zTI4486iVNx8x/details Time work:  3.824364ms
+method  GET ; url /api/forum/9_Qo44R6OvP2s/users Time work:  497.002298ms
+method  GET ; url /api/forum/qHt6P0ro-24EKX/threads Time work:  121.420515ms
+method  GET ; url /api/post/749702/details Time work:  5.937485ms
+method  GET ; url /api/user/hi.Bd2UG2PMZ14dRU/profile Time work:  986.94µs
+method  GET ; url /api/thread/4993/details Time work:  1.275073ms
+method  GET ; url /api/forum/hUtO0086OV02S/details Time work:  3.287654ms
+method  GET ; url /api/forum/q_T-n4S6Oxnvk/users Time work:  687.56741ms
+method  GET ; url /api/forum/Gzz64pS6ov0es/users Time work:  29.402473ms
+method  GET ; url /api/forum/-1gON0S66X4xk/users Time work:  76.264272ms
+method  GET ; url /api/thread/4993/details Time work:  2.351409ms
+method  GET ; url /api/thread/4993/posts  Sort:  flat Time work:  32.382822ms
+method  GET ; url /api/forum/9zTI4486iVNx8x/details Time work:  1.385947ms
+method  GET ; url /api/thread/5854/details Time work:  465.395µs
+method  GET ; url /api/post/783541/details Time work:  26.234148ms
+method  GET ; url /api/forum/r1G6008ioVN2R/users Time work:  60.994748ms
+method  GET ; url /api/forum/_QTI44r6oeN28/details Time work:  956.095µs
+method  GET ; url /api/thread/5003/details Time work:  464.677µs
+method  GET ; url /api/user/FACIET.Q96Z4GpZmD4dR9/profile Time work:  396.032µs
+method  GET ; url /api/post/1016665/details Time work:  24.624302ms
+method  GET ; url /api/thread/97761509/posts  Sort:  flat Time work:  339.554µs
+method  GET ; url /api/user/ob.yvvh2476hdndrs/profile Time work:  314.85µs
+method  GET ; url /api/forum/hht60nkiovnvk/threads Time work:  13.595355ms
+method  GET ; url /api/user/maris.mui622rz6vgdrx/profile Time work:  847.105µs
+method  GET ; url /api/forum/hht60NkioVnVK/threads Time work:  73.336211ms
+method  GET ; url /api/forum/pgqop08ioe4xs/threads Time work:  137.24439ms
+method  GET ; url /api/forum/hUtO0086OV02S/details Time work:  2.339941ms
+method  GET ; url /api/post/36355027/details Time work:  899.95µs
+method  GET ; url /api/thread/6447/posts  Sort:  flat Time work:  75.025604ms
+method  GET ; url /api/forum/5hTI4N8ooe0Xk/threads Time work:  154.187343ms
+method  GET ; url /api/forum/CqTo0Pr6iVnxk/threads Time work:  33.406059ms
+method  GET ; url /api/user/PATI.DN3Z2476HVNVRS/profile Time work:  3.629385ms
+method  GET ; url /api/user/TU.P4Z6G4J6M14Up/profile Time work:  1.636516ms
+method  GET ; url /api/thread/4993/details Time work:  992.184µs
+method  GET ; url /api/forum/6_Q60nS6IEne8v/details Time work:  2.68539ms
+method  GET ; url /api/thread/4993/details Time work:  1.116208ms
+method  GET ; url /api/forum/a0gMQjoi-24v8/details Time work:  855.886µs
+method  GET ; url /api/forum/gZZ64Ps6OV0ES/threads Time work:  79.042401ms
+method  GET ; url /api/forum/6_Q60nS6IEne8v/threads Time work:  45.58652ms
+method  GET ; url /api/user/congoscam.j0Km427mMDNV7v/profile Time work:  1.205106ms
+method  GET ; url /api/post/746363/details Time work:  63.87884ms
+method  GET ; url /api/user/e.Q1hMn4p6H1N17l/profile Time work:  1.094512ms
+method  GET ; url /api/forum/9_qO44r6oVp2S/details Time work:  3.491441ms
+method  GET ; url /api/user/e.tvrzg47zh12dpd/profile Time work:  1.389606ms
+method  GET ; url /api/forum/IZT64NKOO2NXS/users Time work:  37.407463ms
+method  GET ; url /api/user/odorum.U5kzg4R6M1GU7Z/profile Time work:  972.808µs
+method  GET ; url /api/thread/4481/posts  Sort:  flat Time work:  27.14732ms
+method  GET ; url /api/thread/5003/posts  Sort:  flat Time work:  2.262224ms
+method  GET ; url /api/post/33387/details Time work:  50.998908ms
+method  GET ; url /api/user/cui.3qgvngjm6v41rv/profile Time work:  1.113221ms
+method  GET ; url /api/post/750185/details Time work:  1.021181ms
+method  GET ; url /api/forum/9gtiPPki-2pe8/users Time work:  27.580301ms
+method  GET ; url /api/user/sine.yjjzggjm61gu78/profile Time work:  620.399µs
+method  GET ; url /api/forum/hht60NkioVnVK/threads Time work:  31.196949ms
+method  GET ; url /api/forum/9zTI4486iVNx8x/details Time work:  1.880366ms
+method  GET ; url /api/thread/45096216/details Time work:  496.622µs
+method  GET ; url /api/thread/f_0Az566IvPvsE/details Time work:  769.895µs
+method  GET ; url /api/forum/9_nlQc-IO20XS/threads Time work:  516.252µs
+method  GET ; url /api/forum/IZT64nKoo2nxS/threads Time work:  8.135976ms
+method  GET ; url /api/forum/pgqop08ioe4xs/users Time work:  117.020075ms
+method  GET ; url /api/forum/Gzz64pS6ov0es/details Time work:  1.132523ms
+method  GET ; url /api/forum/9gtippki-2pe8/threads Time work:  41.060423ms
+method  GET ; url /api/forum/aZtoP4kO-e0vs/users Time work:  24.111ms
+method  GET ; url /api/forum/5Hti4n8OOE0xK/threads Time work:  4.461457ms
+method  GET ; url /api/forum/9Zti4486IvnX8X/users Time work:  92.400053ms
+method  GET ; url /api/forum/pgqop08ioe4xs/users Time work:  23.431147ms
+method  GET ; url /api/forum/huto0086ov02s/users Time work:  46.130504ms
+method  GET ; url /api/post/663790/details Time work:  49.274611ms
+method  GET ; url /api/forum/-1gON0S66X4xk/details Time work:  2.146327ms
+method  GET ; url /api/forum/_QTI44r6oeN28/threads Time work:  117.159391ms
+method  GET ; url /api/forum/AzTOp4Ko-E0VS/threads Time work:  78.804538ms
+method  GET ; url /api/forum/EtZin0KI6VNE8/threads Time work:  31.990574ms
+method  GET ; url /api/forum/5HTI4N8OOE0XK/threads Time work:  46.760998ms
+method  GET ; url /api/forum/5Hti4n8OOE0xK/threads Time work:  4.771156ms
+method  GET ; url /api/forum/aZtoP4kO-e0vs/details Time work:  2.548249ms
+method  GET ; url /api/post/750191/details Time work:  1.94161ms
+method  GET ; url /api/forum/9zTI4486iVNx8x/users Time work:  24.627053ms
+method  GET ; url /api/forum/V_QI40KOOV4VS/threads Time work:  33.941697ms
+method  GET ; url /api/post/750147/details Time work:  2.225032ms
+method  GET ; url /api/forum/6A5fzCI-6ePx8/threads Time work:  1.065568ms
+method  GET ; url /api/post/752367/details Time work:  15.565592ms
+method  GET ; url /api/thread/5003/details Time work:  1.068726ms
+method  GET ; url /api/thread/JUJFGJ6OiXp2S/details Time work:  16.534698ms
+method  GET ; url /api/thread/4880/posts  Sort:  flat Time work:  81.006263ms
+method  GET ; url /api/thread/4993/details Time work:  1.291304ms
+method  GET ; url /api/post/13571423/details Time work:  982.644µs
