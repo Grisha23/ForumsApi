@@ -7,6 +7,10 @@ import (
 	"github.com/gorilla/mux"
 	"net/http"
 	"time"
+
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 
@@ -26,6 +30,17 @@ func AccessLogMiddleware (mux *mux.Router,) http.HandlerFunc   {
 
 		}
 
+		HitStat.With(prometheus.Labels{
+			"url":    r.URL.Path,
+			"method": r.Method,
+			"code":   w.Header().Get("Status-Code"),
+		}).Inc()
+
+
+		rps.With(prometheus.Labels{
+			"code":    w.Header().Get("Status-Code"),
+		}).Inc()
+
 		//if sortVal != "" {
 		//	fmt.Println("END method ", r.Method, " Sort: ", sortVal, "; url", r.URL.Path,
 		//		"Time work: ", time.Since(begin))
@@ -39,10 +54,48 @@ func AccessLogMiddleware (mux *mux.Router,) http.HandlerFunc   {
 	})
 }
 
+var (
+	HitStat = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "ForumsApi",
+			Subsystem: "hit_stat",
+			Name:      "HitStat",
+			Help:      "Hit info.",
+		},
+		[]string{
+			"url",
+			"method",
+			"code",
+		},
+	)
+
+	rps = prometheus.NewCounterVec(
+		prometheus.CounterOpts {
+			Name: "rps_total",
+			Help: "Total rps",
+		},
+		[]string{"code"},
+	)
+	
+)
+func init() {
+	// Metrics have to be registered to be exposed:
+	prometheus.MustRegister(HitStat)
+	prometheus.MustRegister(rps)
+}
+
+
 func main(){
+
+	// The Handler function provides a default handler to expose metrics
+	// via an HTTP server. "/metrics" is the usual endpoint for that.
+
+
 	db, _ := handlers.InitDb()
 
 	router := mux.NewRouter()
+
+	http.Handle("/metrics", promhttp.Handler())
 
 	router.HandleFunc("/api/forum/create", handlers.ForumCreate)
 	router.HandleFunc(`/api/forum/{slug}/create`, handlers.ThreadCreate)
@@ -63,9 +116,9 @@ func main(){
 	router.HandleFunc(`/api/user/{nickname}/create`, handlers.UserCreate)
 	router.HandleFunc(`/api/user/{nickname}/profile`, handlers.UserProfile)  // + быстро
 
-//	siteHandler := AccessLogMiddleware(router)
+	siteHandler := AccessLogMiddleware(router)
 
-	http.Handle("/", router)
+	http.Handle("/", siteHandler)
 	http.ListenAndServe(":5000", nil)
 
 	defer db.Close()

@@ -36,7 +36,9 @@ ADD ./ $GOPATH/src/github.com/Grisha23/ForumsApi/
 # Подтягиваем зависимости
 RUN go get \
     github.com/lib/pq \
-    github.com/gorilla/mux
+    github.com/gorilla/mux \
+    github.com/prometheus/client_golang/prometheus \
+	github.com/prometheus/client_golang/prometheus/promhttp
 
 # Собираем пакет
 RUN go install .
