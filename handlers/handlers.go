@@ -44,12 +44,12 @@ func InitDb() (*sql.DB, error) {
 		panic(err)
 	}
 
-	init, err := ioutil.ReadFile("./forum.sql")
-	_, err = db.Exec(string(init))
+	// init, err := ioutil.ReadFile("./forum.sql")
+	// _, err = db.Exec(string(init))
 
-	if err != nil {
-		panic(err)
-	}
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	fmt.Println("You connected to your database.")
 
