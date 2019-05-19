@@ -34,8 +34,8 @@ var db *sql.DB
 
 func InitDb() (*sql.DB, error) {
 	var err error
-	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", // Need host in docker
-		DbUser, DbPassword, DbName)
+	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable", // Need host in docker
+		DbUser, DbPassword, DbName, host)
 		
 	db, err = sql.Open("postgres", dbinfo)
 	if err != nil {
