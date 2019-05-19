@@ -1,13 +1,12 @@
 package main
 
 import (
-	"github.com/Grisha23/ForumsApi/handlers"
-	//"ForumsApi/handlers"
+	// "github.com/Grisha23/ForumsApi/handlers"
+	"ForumsApi/handlers"
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
 	"time"
-
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -37,9 +36,13 @@ func AccessLogMiddleware (mux *mux.Router,) http.HandlerFunc   {
 		}).Inc()
 
 
-		rps.With(prometheus.Labels{
-			"code":    w.Header().Get("Status-Code"),
-		}).Inc()
+		rps.Add(1)
+		
+		// if error != nil {
+		// 	fmt.Println("error here")
+		// 	return
+		// }
+		// fmt.Println(cpu_info)
 
 		//if sortVal != "" {
 		//	fmt.Println("END method ", r.Method, " Sort: ", sortVal, "; url", r.URL.Path,
@@ -69,19 +72,18 @@ var (
 		},
 	)
 
-	rps = prometheus.NewCounterVec(
-		prometheus.CounterOpts {
-			Name: "rps_total",
-			Help: "Total rps",
-		},
-		[]string{"code"},
+	rps =prometheus.NewCounter(
+		prometheus.CounterOpts{
+		  Name: "rps_total",
+		})
 	)
 	
-)
+
 func init() {
 	// Metrics have to be registered to be exposed:
 	prometheus.MustRegister(HitStat)
 	prometheus.MustRegister(rps)
+
 }
 
 

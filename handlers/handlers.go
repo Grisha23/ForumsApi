@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"github.com/Grisha23/ForumsApi/models"
-	//"ForumsApi/models"
+	// "github.com/Grisha23/ForumsApi/models"
+	"ForumsApi/models"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -20,21 +20,23 @@ const (
 	DbPassword = "123"
 	DbName     = "forumapi"
 	host 	   = "10.154.0.2"
+
 	// DbUser     = "docker"
 	// DbPassword = "docker"
 	// DbName     = "docker"
-	//DbUser     = "tpforumsapi"
-	//DbPassword = "222"
-	//DbName = "forums_func"
-	//DbName = "forums"
+	// DbUser     = "tpforumsapi"
+	// DbPassword = "222"
+	// DbName = "forums_func"
+	// DbName = "forums"
 )
 
 var db *sql.DB
 
 func InitDb() (*sql.DB, error) {
 	var err error
-	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable",
-		DbUser, DbPassword, DbName, host)
+	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", // Need host in docker
+		DbUser, DbPassword, DbName)
+		
 	db, err = sql.Open("postgres", dbinfo)
 	if err != nil {
 		panic(err)
