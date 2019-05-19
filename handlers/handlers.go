@@ -2,7 +2,7 @@ package handlers
 
 import (
 	// "github.com/Grisha23/ForumsApi/models"
-	"ForumsApi/models"
+	// "ForumsApi/models"
 	"database/sql"
 	"encoding/json"
 	"fmt"
