@@ -1,7 +1,7 @@
 package main
 
 import (
-	// "github.com/Grisha23/ForumsApi/handlers"
+	"github.com/Grisha23/ForumsApi/handlers"
 	// "ForumsApi/handlers"
 	"fmt"
 	"github.com/gorilla/mux"
